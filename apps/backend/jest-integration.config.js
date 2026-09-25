@@ -10,5 +10,6 @@ module.exports = {
   ],
   coverageDirectory: '../coverage',
   testEnvironment: 'node',
+  setupFiles: ['<rootDir>/../test/setup/external-mocks.ts'],
   testTimeout: 60000,
 };

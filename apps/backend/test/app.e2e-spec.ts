@@ -3,7 +3,7 @@ import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { AuthModule } from '../src/auth/auth.module';
 import { CoursesModule } from '../src/courses/courses.module';
 import { UsersModule } from '../src/users/users.module';
@@ -12,10 +12,12 @@ import { User } from '../src/users/user.entity';
 import { Course } from '../src/courses/course.entity';
 import { RefreshToken } from '../src/auth/refresh-token.entity';
 import { PasswordResetToken } from '../src/auth/password-reset-token.entity';
+import { resetAndSeed } from './fixtures/database';
 
 describe('App E2E', () => {
   let app: INestApplication;
   let userRepo: Repository<User>;
+  let dataSource: DataSource;
 
   beforeAll(async () => {
     process.env.EMAIL_ENABLED = 'false';
@@ -39,6 +41,11 @@ describe('App E2E', () => {
     await app.init();
 
     userRepo = moduleFixture.get<Repository<User>>(getRepositoryToken(User));
+    dataSource = moduleFixture.get(DataSource);
+  });
+
+  beforeEach(async () => {
+    await resetAndSeed(dataSource);
   });
 
   afterAll(async () => {
