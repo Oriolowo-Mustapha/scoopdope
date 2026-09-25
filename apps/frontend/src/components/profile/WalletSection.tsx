@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/Button';
+import { WalletAddress } from '@/components/wallet/WalletAddress';
 
 interface Props {
   userId: string;
@@ -80,9 +81,7 @@ export default function WalletSection({ userId, stellarPublicKey, onLinked, onUn
         <div className="space-y-3">
           <div>
             <p className="text-sm text-gray-500 mb-1">Linked public key</p>
-            <code className="text-xs bg-gray-100 px-2 py-1 rounded break-all">
-              {stellarPublicKey}
-            </code>
+            <WalletAddress address={stellarPublicKey} className="rounded bg-gray-100 px-2 py-1" />
           </div>
           {bstBalance !== null && (
             <p className="text-sm">
