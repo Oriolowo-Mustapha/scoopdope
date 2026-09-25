@@ -53,7 +53,7 @@ export function CourseCard({ course, observerRef }: { course: Course; observerRe
         <div className="relative w-full h-36">
           <Image
             src={course.thumbnailUrl}
-            alt={course.title}
+            alt={`${course.title} course thumbnail`}
             fill
             sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
             className="object-cover"
