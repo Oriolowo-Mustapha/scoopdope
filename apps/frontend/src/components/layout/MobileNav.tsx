@@ -155,6 +155,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({ isAuthenticated, onLogout 
               <Link
                 key={item.href}
                 href={item.href}
+                onClick={() => setIsOpen(false)}
                 // min 44px height for touch target
                 className={`flex items-center space-x-3 px-4 min-h-[44px] rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
                   isActive
