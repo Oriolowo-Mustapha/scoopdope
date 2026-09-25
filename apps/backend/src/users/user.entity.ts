@@ -20,6 +20,12 @@ export enum Role {
   STUDENT = 'student',
 }
 
+export enum UserStatus {
+  ACTIVE = 'active',
+  SUSPENDED = 'suspended',
+  DEACTIVATED = 'deactivated',
+}
+
 @Entity('users')
 export class User {
   @PrimaryGeneratedColumn('uuid')

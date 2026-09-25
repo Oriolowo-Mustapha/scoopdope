@@ -25,8 +25,8 @@ export class ProgressController {
   })
   @ApiResponse({ status: 400, description: 'Invalid input' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  record(@Request() req, @Body() dto: RecordProgressDto) {
-    return this.progressService.record(req.user.id, dto, req.user.stellarPublicKey);
+  record(@Request() req: { user: { id: string; stellarPublicKey?: string } }, @Body() dto: RecordProgressDto) {
+    return this.progressService.record(req.user.id, dto, req.user.stellarPublicKey ?? '');
   }
 
   @Get('users/:id/progress')

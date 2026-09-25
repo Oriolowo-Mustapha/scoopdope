@@ -11,11 +11,15 @@ import { CourseModule } from './course-module.entity';
 import { User } from '../users/user.entity';
 import { Review } from './review.entity';
 import { CoursePrerequisite } from './course-prerequisite.entity';
+import { Category } from './category.entity';
 
 export enum CourseStatus {
   DRAFT = 'draft',
+  PENDING_REVIEW = 'pending_review',
   SCHEDULED = 'scheduled',
+  PENDING = 'pending',
   PUBLISHED = 'published',
+  ARCHIVED = 'archived',
 }
 
 @Entity('courses')
@@ -94,6 +98,14 @@ export class Course {
   @JoinColumn({ name: 'instructorId' })
   instructor: User;
 
+  /** Optional category. SET NULL on category deletion so courses become uncategorised. */
+  @Column({ nullable: true, type: 'uuid' })
+  categoryId: string | null;
+
+  @ManyToOne(() => Category, { nullable: true, eager: false, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'categoryId' })
+  category: Category | null;
+
   @OneToMany(() => CourseModule, (m) => m.course)
   modules: CourseModule[];
 
@@ -108,3 +120,4 @@ export class Course {
   @CreateDateColumn()
   createdAt: Date;
 }
+

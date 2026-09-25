@@ -214,4 +214,62 @@ export class CertificatesController {
       type: 'application/pdf',
     });
   }
+
+  // ── Download endpoint (issue #874) ────────────────────────────────────────
+
+  /**
+   * GET /v1/certificates/:id/download
+   *
+   * Returns a PDF certificate as a downloadable file.
+   * File name includes course slug and issue date for easy identification
+   * (e.g. "certificate-intro-to-stellar-2026-08-26.pdf").
+   *
+   * Authentication is required so only the certificate owner (or an admin)
+   * can download it.
+   */
+  @Get(':id/download')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @Header('Content-Type', 'application/pdf')
+  @ApiOperation({
+    summary: 'Download a certificate PDF (issue #874)',
+    description:
+      'Streams the certificate as a PDF attachment. The filename embeds the course ' +
+      'title slug and the issue date so downloads are self-describing.',
+  })
+  @ApiParam({ name: 'id', description: 'UUID of the certificate to download' })
+  @ApiResponse({ status: 200, description: 'PDF attachment with course/date in filename' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden — you do not own this certificate' })
+  @ApiResponse({ status: 404, description: 'Certificate not found' })
+  @ApiResponse({ status: 500, description: 'Internal server error' })
+  async downloadCertificate(
+    @Param('id') id: string,
+    @Request() req: { user: { id: string; role: string } },
+  ): Promise<StreamableFile> {
+    const certificate = await this.certificatesService.getCertificateWithRelations(id);
+
+    // Only the certificate owner or an admin may download
+    if (certificate.userId !== req.user.id && req.user.role !== 'admin') {
+      throw new ForbiddenException('You are not authorised to download this certificate');
+    }
+
+    const baseUrl = this.configService.get<string>('frontend.url') ?? 'http://localhost:3000';
+    const pdf = await this.certificatePdfService.generateCertificatePdf(certificate, baseUrl);
+
+    // Build a descriptive filename: certificate-<course-slug>-<YYYY-MM-DD>.pdf
+    const courseTitle = certificate.course?.title ?? 'course';
+    const courseSlug = courseTitle
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')
+      .slice(0, 60);
+    const issuedDate = certificate.issuedAt.toISOString().slice(0, 10); // YYYY-MM-DD
+    const filename = `certificate-${courseSlug}-${issuedDate}.pdf`;
+
+    return new StreamableFile(pdf, {
+      disposition: `attachment; filename="${filename}"`,
+      type: 'application/pdf',
+    });
+  }
 }

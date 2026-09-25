@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Post, Query, Redirect, Req, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiProperty } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiBearerAuth, ApiProperty } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { ConfigService } from '@nestjs/config';
 import { RateLimit } from '../rate-limit/rate-limit.decorator';
@@ -8,10 +8,13 @@ import { AuthService } from './auth.service';
 import { StellarAuthService } from './stellar-auth.service';
 import { GoogleAuthGuard } from './google-auth.guard';
 import { GoogleProfile } from './google.strategy';
+import { MicrosoftAuthGuard } from './microsoft-auth.guard';
+import { MicrosoftProfile } from './microsoft.strategy';
 import { IsEmail, IsString, MinLength, IsOptional, Matches } from 'class-validator';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { Roles } from './roles.decorator';
 import { RolesGuard } from './roles.guard';
+import { UserDeactivationService } from '../user-deactivation/user-deactivation.service';
 
 class RegisterDto {
   @ApiProperty({
@@ -87,12 +90,14 @@ class RefreshDto {
 }
 
 @ApiTags('auth')
+@RateLimit(AUTH_RATE_LIMIT)
 @Controller('auth')
 export class AuthController {
   constructor(
     private authService: AuthService,
     private stellarAuthService: StellarAuthService,
     private configService: ConfigService,
+    private userDeactivationService: UserDeactivationService,
   ) {}
 
   @Get('google')
@@ -110,6 +115,27 @@ export class AuthController {
   @ApiResponse({ status: 302, description: 'Redirects to frontend with tokens' })
   async googleCallback(@Req() req: { user: GoogleProfile }) {
     const tokens = await this.authService.googleOAuthLogin(req.user);
+    const frontendUrl = this.configService.get<string>('frontend.url');
+    return {
+      url: `${frontendUrl}/auth/callback?access_token=${tokens.access_token}&refresh_token=${tokens.refresh_token}`,
+    };
+  }
+
+  @Get('microsoft')
+  @UseGuards(MicrosoftAuthGuard)
+  @ApiOperation({ summary: 'Initiate Microsoft OAuth login' })
+  @ApiResponse({ status: 302, description: 'Redirects to Microsoft OAuth consent screen' })
+  microsoftLogin() {
+    // Guard redirects to Microsoft
+  }
+
+  @Get('microsoft/callback')
+  @UseGuards(MicrosoftAuthGuard)
+  @Redirect()
+  @ApiOperation({ summary: 'Microsoft OAuth callback — issues JWT and redirects to frontend' })
+  @ApiResponse({ status: 302, description: 'Redirects to frontend with tokens' })
+  async microsoftCallback(@Req() req: { user: MicrosoftProfile }) {
+    const tokens = await this.authService.microsoftOAuthLogin(req.user);
     const frontendUrl = this.configService.get<string>('frontend.url');
     return {
       url: `${frontendUrl}/auth/callback?access_token=${tokens.access_token}&refresh_token=${tokens.refresh_token}`,
@@ -310,6 +336,7 @@ export class AuthController {
 
   @Post('mfa/enable')
   @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Enable MFA - generate TOTP secret' })
   @ApiResponse({ status: 200, description: 'Returns TOTP secret and QR code URL' })
   @ApiResponse({ status: 400, description: 'Bad request' })
@@ -318,12 +345,13 @@ export class AuthController {
   @ApiResponse({ status: 404, description: 'Not found' })
   @ApiResponse({ status: 429, description: 'Too many requests' })
   @ApiResponse({ status: 500, description: 'Internal server error' })
-  enableMfa(@Req() req) {
+  enableMfa(@Req() req: { user: { id: string } }) {
     return this.authService.generateMfaSecret(req.user.id);
   }
 
   @Post('mfa/verify')
   @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Verify MFA code and enable TOTP' })
   @ApiResponse({ status: 200, description: 'MFA enabled successfully' })
   @ApiResponse({ status: 400, description: 'Bad request' })
@@ -332,12 +360,13 @@ export class AuthController {
   @ApiResponse({ status: 404, description: 'Not found' })
   @ApiResponse({ status: 429, description: 'Too many requests' })
   @ApiResponse({ status: 500, description: 'Internal server error' })
-  verifyMfa(@Req() req, @Body('code') code: string) {
+  verifyMfa(@Req() req: { user: { id: string } }, @Body('code') code: string) {
     return this.authService.verifyMfaSecret(req.user.id, code);
   }
 
   @Post('mfa/disable')
   @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Disable MFA' })
   @ApiResponse({ status: 200, description: 'MFA disabled successfully' })
   @ApiResponse({ status: 400, description: 'Bad request' })
@@ -346,12 +375,13 @@ export class AuthController {
   @ApiResponse({ status: 404, description: 'Not found' })
   @ApiResponse({ status: 429, description: 'Too many requests' })
   @ApiResponse({ status: 500, description: 'Internal server error' })
-  disableMfa(@Req() req, @Body('code') code: string) {
+  disableMfa(@Req() req: { user: { id: string } }, @Body('code') code: string) {
     return this.authService.disableMfa(req.user.id, code);
   }
 
   @Post('mfa/backup-codes/regenerate')
   @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Regenerate backup codes (requires valid TOTP)' })
   @ApiResponse({ status: 200, description: 'Backup codes regenerated' })
   @ApiResponse({ status: 400, description: 'Bad request' })
@@ -360,13 +390,14 @@ export class AuthController {
   @ApiResponse({ status: 404, description: 'Not found' })
   @ApiResponse({ status: 429, description: 'Too many requests' })
   @ApiResponse({ status: 500, description: 'Internal server error' })
-  regenerateBackupCodes(@Req() req, @Body('code') code: string) {
+  regenerateBackupCodes(@Req() req: { user: { id: string } }, @Body('code') code: string) {
     return this.authService.regenerateBackupCodes(req.user.id, code);
   }
 
   @Post('admin/api-keys')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin')
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Generate an API key for a user (admin)' })
   @ApiResponse({ status: 201, description: 'API key generated' })
   @ApiResponse({ status: 400, description: 'Bad request' })
@@ -382,6 +413,7 @@ export class AuthController {
   @Post('admin/api-keys/revoke')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin')
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Revoke an API key (admin)' })
   @ApiResponse({ status: 200, description: 'API key revoked' })
   @ApiResponse({ status: 400, description: 'Bad request' })
@@ -396,6 +428,7 @@ export class AuthController {
 
   @Post('stellar-challenge')
   @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
   @Throttle({ default: { limit: 10, ttl: 60000 } })
   @ApiOperation({ summary: 'Generate a challenge for Stellar wallet signing' })
   @ApiResponse({ status: 200, description: 'Challenge generated successfully' })
@@ -411,6 +444,7 @@ export class AuthController {
 
   @Post('stellar-verify')
   @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
   @Throttle({ default: { limit: 10, ttl: 60000 } })
   @ApiOperation({ summary: 'Verify Stellar wallet signature and link to account' })
   @ApiResponse({ status: 200, description: 'Wallet linked successfully' })
@@ -421,11 +455,43 @@ export class AuthController {
   @ApiResponse({ status: 429, description: 'Too many requests' })
   @ApiResponse({ status: 500, description: 'Internal server error' })
   verifyStellarSignature(
-    @Req() req,
+    @Req() req: { user: { id: string } },
     @Body('publicKey') publicKey: string,
     @Body('signature') signature: string,
     @Body('challenge') challenge: string
   ) {
     return this.authService.verifyStellarSignature(req.user.id, publicKey, signature, challenge);
+  }
+
+  /**
+   * POST /v1/auth/reactivate
+   *
+   * #872 – Account Reactivation
+   * No authentication required. Accepts a single-use token sent via email
+   * and re-enables the deactivated account.
+   *
+   * Rate-limited to 10 attempts / hour to prevent brute-force attacks.
+   */
+  @Post('reactivate')
+  @Throttle({ default: { limit: 10, ttl: 3600000 } })
+  @ApiOperation({ summary: 'Reactivate a deactivated account via email token' })
+  @ApiBody({ schema: { example: { token: 'hex-token-from-email' } } })
+  @ApiResponse({ status: 200, description: 'Account reactivated successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid or expired reactivation token' })
+  @ApiResponse({ status: 429, description: 'Too many requests' })
+  async reactivate(@Body('token') token: string) {
+    if (!token) {
+      return { success: false, message: 'Reactivation token is required' };
+    }
+    try {
+      const user = await this.userDeactivationService.reactivate(token);
+      return {
+        success: true,
+        message: 'Your account has been reactivated. You can now log in.',
+        userId: user.id,
+      };
+    } catch (err: any) {
+      return { success: false, message: err?.message ?? 'Reactivation failed' };
+    }
   }
 }

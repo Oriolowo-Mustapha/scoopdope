@@ -23,6 +23,8 @@ import { ApiKeyAuthGuard } from './api-key-auth.guard';
 import { AuditModule } from '../audit/audit.module';
 import { GoogleStrategy } from './google.strategy';
 import { SessionService } from './session.service';
+import { MicrosoftStrategy } from './microsoft.strategy';
+import { UserDeactivationModule } from '../user-deactivation/user-deactivation.module';
 
 @Module({
   imports: [
@@ -30,6 +32,7 @@ import { SessionService } from './session.service';
     MailModule,
     PassportModule,
     AuditModule,
+    UserDeactivationModule,
     TypeOrmModule.forFeature([PasswordResetToken, RefreshToken, ApiKey]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -54,8 +57,9 @@ import { SessionService } from './session.service';
     ApiKeyStrategy,
     ApiKeyAuthGuard,
     GoogleStrategy,
+    MicrosoftStrategy,
   ],
   controllers: [AuthController],
-  exports: [JwtAuthGuard, RolesGuard, ApiKeyAuthGuard, EncryptionService],
+  exports: [JwtModule, JwtAuthGuard, RolesGuard, ApiKeyAuthGuard, EncryptionService],
 })
 export class AuthModule {}

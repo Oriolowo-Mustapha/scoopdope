@@ -3,11 +3,15 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Course } from './course.entity';
 import { CourseModule } from './course-module.entity';
 import { Lesson } from './lesson.entity';
+import { Category } from './category.entity';
 import { CoursesService } from './courses.service';
 import { ModulesService } from './modules.service';
 import { LessonsService } from './lessons.service';
+import { CategoriesService } from './categories.service';
 import { CoursesController } from './courses.controller';
+import { AdminCoursesController } from './admin-courses.controller';
 import { ModulesController } from './modules.controller';
+import { CategoriesController } from './categories.controller';
 import { Review } from './review.entity';
 import { Enrollment } from '../enrollments/enrollment.entity';
 import { ReviewsService } from './reviews.service';
@@ -45,6 +49,7 @@ import { InstructorAssignmentController } from './instructor-assignment.controll
     SearchModule,
     NotificationsModule,
     MetricsModule,
+    AnnouncementsModule,
   ],
   providers: [
     CoursesService,

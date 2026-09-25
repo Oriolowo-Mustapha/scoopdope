@@ -113,6 +113,24 @@ export class EnrollmentsService {
     return enrollment;
   }
 
+  /**
+   * Count total enrollments for a course
+   */
+  async countByCoursId(courseId: string): Promise<number> {
+    return this.repo.count({ where: { courseId } });
+  }
+
+  /**
+   * Count completed enrollments for a course
+   */
+  async countCompletedByCourseId(courseId: string): Promise<number> {
+    return this.repo
+      .createQueryBuilder('enrollment')
+      .where('enrollment.courseId = :courseId', { courseId })
+      .andWhere('enrollment.completedAt IS NOT NULL')
+      .getCount();
+  }
+
   async unenroll(userId: string, courseId: string): Promise<void> {
     const enrollment = await this.repo.findOne({ where: { userId, courseId } });
     if (!enrollment) throw new NotFoundException('Enrollment not found');

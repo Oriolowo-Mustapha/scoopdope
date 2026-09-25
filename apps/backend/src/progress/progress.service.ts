@@ -66,6 +66,15 @@ export class ProgressService {
 
     const saved = await this.repo.save(progress);
 
+    // Emit progress.updated so ProgressSyncGateway can broadcast to other devices
+    this.eventEmitter.emit('progress.updated', {
+      userId,
+      courseId: dto.courseId,
+      lessonId: saved.lessonId,
+      progressPct: saved.progressPct,
+      updatedAt: saved.updatedAt.toISOString(),
+    });
+
     // Update bundle progress if applicable
     if (dto.progressPct >= 100) {
       await this.bundlesService.updateProgress(userId, dto.courseId);

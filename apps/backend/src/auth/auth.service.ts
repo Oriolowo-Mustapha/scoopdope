@@ -82,6 +82,11 @@ export class AuthService {
       throw new UnauthorizedException('Account is banned');
     }
 
+    if (user.status && user.status !== 'active') {
+      await this.auditService.log(AuditAction.LOGIN_FAILURE, user.id, false, { reason: user.status }, ipAddress, userAgent);
+      throw new UnauthorizedException(`Account is ${user.status}`);
+    }
+
     if (!user.isVerified) {
       await this.auditService.log(AuditAction.LOGIN_FAILURE, user.id, false, { reason: 'unverified' }, ipAddress, userAgent);
       throw new ForbiddenException('Please verify your email before logging in');

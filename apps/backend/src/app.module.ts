@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { ThrottlerModule } from '@nestjs/throttler';
 import { CacheModule } from '@nestjs/cache-manager';
 import { APP_FILTER, APP_INTERCEPTOR, APP_GUARD } from '@nestjs/core';
 
@@ -21,16 +20,23 @@ import { AuthModule } from './auth/auth.module';
 import { CoursesModule } from './courses/courses.module';
 import { EnrollmentsModule } from './enrollments/enrollments.module';
 import { CertificatesModule } from './certificates/certificates.module';
+import { ApiVersionModule } from './common/versioning';
+import { PayoutsModule } from './payouts/payouts.module';
+import { InstructorApplicationsModule } from './instructor-applications/instructor-applications.module';
+import { AssignmentsModule } from './assignments/assignments.module';
+import { StreaksModule } from './streaks/streaks.module';
+import { StudySessionsModule } from './study-sessions/study-sessions.module';
 import { BundlesModule } from './bundles/bundles.module';
 import { SubscriptionsModule } from './subscriptions/subscriptions.module';
 import { LiveSessionsModule } from './live-sessions/live-sessions.module';
 import { PaymentsModule } from './payments/payments.module';
 import { RewardsModule } from './rewards/rewards.module';
 import * as redisStore from 'cache-manager-redis-store';
-import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis';
 import configuration from './config/configuration';
 import { validationSchema } from './config/validation.schema';
 
+import { RateLimitModule } from './rate-limit/rate-limit.module';
+import { UserRateLimitGuard } from './rate-limit/user-rate-limit.guard';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -48,12 +54,6 @@ import { validationSchema } from './config/validation.schema';
       host: process.env.REDIS_HOST || 'localhost',
       port: process.env.REDIS_PORT || 6379,
     }),
-    ThrottlerModule.forRoot([
-      {
-        ttl: 60 * 1000,
-        limit: 100,
-      },
-    ]),
     TypeOrmModule.forRootAsync({
       useFactory: async (configService: ConfigService) => ({
         type: 'postgres',
@@ -73,12 +73,40 @@ import { validationSchema } from './config/validation.schema';
     CoursesModule,
     EnrollmentsModule,
     CertificatesModule,
+    PayoutsModule,
+    InstructorApplicationsModule,
+    HealthModule,
+    MetricsModule,
+    KycModule,
+    RecommendationsModule,
+    EmailModule,
+    AnalyticsModule,
+    WebhooksModule,
+    ModerationModule,
+    ImportExportModule,
+    SearchModule,
+    BatchModule,
+    ApiUsageModule,
+    QuizzesModule,
+    CohortsModule,
+    CdnModule,
+    AccessControlModule,
+    RateLimitModule,
+    AuditModule,
+    DownloadsModule,
+    QaModule,
+    AnnouncementsModule,
+    AssignmentsModule,
+    StreaksModule,
+    StudySessionsModule,
     BundlesModule,
     SubscriptionsModule,
     LiveSessionsModule,
     PaymentsModule,
     RewardsModule,
+    RateLimitModule,
     ApiVersionModule,
+    MonitoringModule,
   ],
   providers: [
     {
@@ -91,7 +119,7 @@ import { validationSchema } from './config/validation.schema';
     },
     {
       provide: APP_GUARD,
-      useClass: ThrottlerGuard,
+      useClass: UserRateLimitGuard,
     },
   ],
 })

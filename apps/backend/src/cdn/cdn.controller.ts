@@ -5,8 +5,10 @@ import { Roles } from '../auth/roles.decorator';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { CdnService } from './cdn.service';
 import { ContentType } from './cdn-asset.entity';
-import { ApiResponse } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 
+@ApiTags('cdn')
+@ApiBearerAuth()
 @Controller('v1/cdn')
 @UseGuards(JwtAuthGuard)
 export class CdnController {
@@ -15,6 +17,7 @@ export class CdnController {
   @Post('upload')
   @UseGuards(RolesGuard)
   @Roles('admin', 'instructor')
+  @ApiOperation({ summary: 'Upload a content asset' })
   @ApiResponse({ status: 400, description: 'Bad request' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
@@ -38,6 +41,7 @@ export class CdnController {
   }
 
   @Get(':assetId/signed-url')
+  @ApiOperation({ summary: 'Generate a signed URL for an asset' })
   @ApiResponse({ status: 400, description: 'Bad request' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
@@ -58,6 +62,7 @@ export class CdnController {
   @Post(':assetId/transcode')
   @UseGuards(RolesGuard)
   @Roles('admin')
+  @ApiOperation({ summary: 'Mark an asset as transcoded' })
   async markTranscoded(@Param('assetId') assetId: string, @Body() data: { bitrates?: number[]; thumbnailUrl?: string }) {
     return this.cdnService.markAsTranscoded(assetId, data.bitrates?.map(String) ?? [], data.thumbnailUrl);
   }
@@ -65,6 +70,7 @@ export class CdnController {
   @Post(':assetId/invalidate')
   @UseGuards(RolesGuard)
   @Roles('admin')
+  @ApiOperation({ summary: 'Invalidate cached versions of an asset' })
   @ApiResponse({ status: 400, description: 'Bad request' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
@@ -76,6 +82,7 @@ export class CdnController {
   }
 
   @Get('lesson/:lessonId')
+  @ApiOperation({ summary: 'List assets for a lesson' })
   @ApiResponse({ status: 400, description: 'Bad request' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
@@ -87,6 +94,7 @@ export class CdnController {
   }
 
   @Get(':assetId')
+  @ApiOperation({ summary: 'Get an asset by ID' })
   @ApiResponse({ status: 400, description: 'Bad request' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
