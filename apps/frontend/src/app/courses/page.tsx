@@ -103,7 +103,12 @@ export default function CoursesPage() {
           </div>
         )}
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3" role="grid" aria-label="Courses list">
+        <div
+          className="grid gap-4 md:grid-cols-2 lg:grid-cols-3"
+          role="grid"
+          aria-label="Courses list"
+          aria-busy={isLoading}
+        >
           {isLoading
             ? Array.from({ length: 6 }).map((_, i) => <CourseSkeletonCard key={i} />)
             : courses.length === 0

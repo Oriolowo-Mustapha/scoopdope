@@ -22,6 +22,7 @@ import { ApiKeyStrategy } from './api-key.strategy';
 import { ApiKeyAuthGuard } from './api-key-auth.guard';
 import { AuditModule } from '../audit/audit.module';
 import { GoogleStrategy } from './google.strategy';
+import { SessionService } from './session.service';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { GoogleStrategy } from './google.strategy';
   providers: [
     AuthService,
     TokenService,
+    SessionService,
     MfaService,
     OAuthService,
     StellarAuthService,
