@@ -7,10 +7,12 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Credential } from './credential.entity';
 import { StellarService } from '../stellar/stellar.service';
 import { KycService } from '../kyc/kyc.service';
 import { CoursesService } from '../courses/courses.service';
+import { UsersService } from '../users/users.service';
 
 @Injectable()
 export class CredentialsService {
@@ -18,7 +20,9 @@ export class CredentialsService {
     @InjectRepository(Credential) private repo: Repository<Credential>,
     @Inject(forwardRef(() => StellarService)) private stellarService: StellarService,
     private kycService: KycService,
-    private coursesService: CoursesService
+    private coursesService: CoursesService,
+    private usersService: UsersService,
+    private eventEmitter: EventEmitter2,
   ) {}
 
   async issue(userId: string, courseId: string, stellarPublicKey: string): Promise<Credential> {
@@ -63,7 +67,19 @@ export class CredentialsService {
       stellarPublicKey,
       grade: metadata.grade,
     });
-    return this.repo.save(credential);
+    const saved = await this.repo.save(credential);
+
+    const user = await this.usersService.findById(userId);
+    this.eventEmitter.emit('credential.issued', {
+      userId,
+      userEmail: user?.email ?? '',
+      userName: user?.username ?? '',
+      courseTitle: course.title,
+      courseName: course.title,
+      txHash,
+    });
+
+    return saved;
   }
 
   async issueBundle(userId: string, bundleId: string, stellarPublicKey: string): Promise<Credential> {
@@ -79,7 +95,19 @@ export class CredentialsService {
     }
 
     const credential = this.repo.create({ userId, bundleId, txHash, stellarPublicKey });
-    return this.repo.save(credential);
+    const saved = await this.repo.save(credential);
+
+    const user = await this.usersService.findById(userId);
+    this.eventEmitter.emit('credential.issued', {
+      userId,
+      userEmail: user?.email ?? '',
+      userName: user?.username ?? '',
+      courseTitle: `Bundle: ${bundleId}`,
+      courseName: `Bundle: ${bundleId}`,
+      txHash,
+    });
+
+    return saved;
   }
 
   async issueLearningPath(userId: string, learningPathId: string, stellarPublicKey: string): Promise<Credential> {
@@ -95,8 +123,22 @@ export class CredentialsService {
     }
 
     const credential = this.repo.create({ userId, learningPathId, txHash, stellarPublicKey });
-    return this.repo.save(credential);
-  }  findByUser(userId: string) {
+    const saved = await this.repo.save(credential);
+
+    const user = await this.usersService.findById(userId);
+    this.eventEmitter.emit('credential.issued', {
+      userId,
+      userEmail: user?.email ?? '',
+      userName: user?.username ?? '',
+      courseTitle: `Learning Path: ${learningPathId}`,
+      courseName: `Learning Path: ${learningPathId}`,
+      txHash,
+    });
+
+    return saved;
+  }
+
+  findByUser(userId: string) {
     return this.repo.find({ where: { userId }, order: { issuedAt: 'DESC' } });
   }
 
