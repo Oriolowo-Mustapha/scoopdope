@@ -51,9 +51,15 @@ export function useNotifications() {
       setNotifications(initial);
     });
 
-    // New incoming notification
+    // New incoming notification (deduplicate in case it was already
+    // delivered via notifications:init on reconnect)
     socket.on('notification', (n: AppNotification) => {
-      setNotifications((prev) => [n, ...prev]);
+      setNotifications((prev) => {
+        if (prev.some((existing) => existing.id === n.id)) {
+          return prev;
+        }
+        return [n, ...prev];
+      });
       
       // Trigger sound and visual feedback
       setPlaySound(true);

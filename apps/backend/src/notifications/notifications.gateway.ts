@@ -52,14 +52,25 @@ export class NotificationsGateway
       const payload = this.jwtService.verify<{ sub: string }>(token);
       const userId = payload.sub;
       client.join(`user:${userId}`);
-      
-      // Send initial notifications on connect
+
+      // Send full initial notifications on connect
       const notifications = await this.notificationRepo.find({
         where: { userId },
         order: { isRead: 'ASC', createdAt: 'DESC' },
       });
       client.emit('notifications:init', notifications);
-      
+
+      // Re-deliver unread notifications as individual events so the
+      // frontend can trigger sounds / visual feedback for ones the
+      // user missed while offline.
+      const unreadNotifications = await this.notificationRepo.find({
+        where: { userId, isRead: false },
+        order: { createdAt: 'ASC' },
+      });
+      for (const notification of unreadNotifications) {
+        client.emit('notification', notification);
+      }
+
       this.logger.debug(`Client connected: ${client.id}, user: ${userId}`);
     } catch {
       client.disconnect();
