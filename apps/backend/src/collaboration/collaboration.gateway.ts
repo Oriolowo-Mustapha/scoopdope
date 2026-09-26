@@ -9,6 +9,7 @@ import {
   WebSocketServer,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
+import { JwtService } from '@nestjs/jwt';
 import { PresenceService } from './presence.service';
 
 interface Session {
@@ -34,11 +35,23 @@ export class CollaborationGateway implements OnGatewayConnection, OnGatewayDisco
   /** socketId -> session, so we can clear presence on disconnect. */
   private readonly sockets = new Map<string, Session>();
 
-  constructor(private readonly presence: PresenceService) {}
+  constructor(
+    private readonly presence: PresenceService,
+    private readonly jwtService: JwtService,
+  ) {}
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  handleConnection(_client: Socket): void {
-    // Session is established via the `join` message.
+  async handleConnection(client: Socket): Promise<void> {
+    const token = client.handshake.auth?.token as string | undefined;
+    if (!token) {
+      client.disconnect();
+      return;
+    }
+    try {
+      this.jwtService.verify<{ sub: string }>(token);
+      this.logger.debug(`Collaboration socket connected: ${client.id}`);
+    } catch {
+      client.disconnect();
+    }
   }
 
   @SubscribeMessage('join')
