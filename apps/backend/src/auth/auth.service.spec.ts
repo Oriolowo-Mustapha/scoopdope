@@ -14,7 +14,7 @@ import { AuditService } from '../audit/audit.service';
 import { TokenService } from './token.service';
 import { MfaService } from './mfa.service';
 import { OAuthService } from './oauth.service';
-import { BadRequestException, ForbiddenException, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 
@@ -23,6 +23,7 @@ describe('AuthService', () => {
 
   const mockUsersService = {
     findByEmail: jest.fn(),
+    findByEmailWithPassword: jest.fn(),
     findById: jest.fn(),
     findByVerificationToken: jest.fn(),
     findByReferralCode: jest.fn(),
@@ -127,6 +128,7 @@ describe('AuthService', () => {
         hash: 'hashed',
         expiresAt: new Date(Date.now() + 86400000),
       });
+      mockTokenService.issueTokenPair.mockResolvedValue({ access_token: 'tok', refresh_token: 'ref' });
     });
 
     it('registers a new user successfully', async () => {
@@ -136,14 +138,19 @@ describe('AuthService', () => {
 
       const result = await service.register(email, password);
 
-      expect(result).toEqual({ message: 'Registration successful. Please verify your email.' });
+      expect(result).toEqual({
+        userId: 'uuid',
+        access_token: 'tok',
+        refresh_token: 'ref',
+        message: 'Registration successful. Please verify your email.',
+      });
       expect(mockUsersService.create).toHaveBeenCalled();
       expect(mockMailService.sendVerificationEmail).toHaveBeenCalled();
     });
 
-    it('throws BadRequestException if email already in use', async () => {
+    it('throws ConflictException if email already in use', async () => {
       mockUsersService.findByEmail.mockResolvedValue({ email });
-      await expect(service.register(email, password)).rejects.toThrow(BadRequestException);
+      await expect(service.register(email, password)).rejects.toThrow(ConflictException);
       expect(mockUsersService.create).not.toHaveBeenCalled();
     });
   });
@@ -169,46 +176,46 @@ describe('AuthService', () => {
     });
 
     it('returns tokens on successful login', async () => {
-      mockUsersService.findByEmail.mockResolvedValue(baseUser);
+      mockUsersService.findByEmailWithPassword.mockResolvedValue(baseUser);
       const result = await service.login(email, password);
       expect(result).toHaveProperty('access_token');
       expect(result).toHaveProperty('refresh_token');
     });
 
     it('throws UnauthorizedException for wrong password', async () => {
-      mockUsersService.findByEmail.mockResolvedValue(baseUser);
+      mockUsersService.findByEmailWithPassword.mockResolvedValue(baseUser);
       jest.spyOn(bcrypt, 'compare').mockImplementation(() => Promise.resolve(false));
       await expect(service.login(email, password)).rejects.toThrow(UnauthorizedException);
     });
 
     it('throws UnauthorizedException if user not found', async () => {
-      mockUsersService.findByEmail.mockResolvedValue(null);
+      mockUsersService.findByEmailWithPassword.mockResolvedValue(null);
       await expect(service.login(email, password)).rejects.toThrow(UnauthorizedException);
     });
 
     it('throws UnauthorizedException if user is banned', async () => {
-      mockUsersService.findByEmail.mockResolvedValue({ ...baseUser, isBanned: true });
+      mockUsersService.findByEmailWithPassword.mockResolvedValue({ ...baseUser, isBanned: true });
       await expect(service.login(email, password)).rejects.toThrow(UnauthorizedException);
     });
 
     it('throws ForbiddenException if user is not verified', async () => {
-      mockUsersService.findByEmail.mockResolvedValue({ ...baseUser, isVerified: false });
+      mockUsersService.findByEmailWithPassword.mockResolvedValue({ ...baseUser, isVerified: false });
       await expect(service.login(email, password)).rejects.toThrow(ForbiddenException);
     });
 
     it('throws ForbiddenException if admin has not enabled 2FA', async () => {
-      mockUsersService.findByEmail.mockResolvedValue({ ...baseUser, role: 'admin', mfaEnabled: false });
+      mockUsersService.findByEmailWithPassword.mockResolvedValue({ ...baseUser, role: 'admin', mfaEnabled: false });
       await expect(service.login(email, password)).rejects.toThrow(ForbiddenException);
     });
 
     it('returns mfa_required when 2FA is enabled but no token provided', async () => {
-      mockUsersService.findByEmail.mockResolvedValue({ ...baseUser, mfaEnabled: true });
+      mockUsersService.findByEmailWithPassword.mockResolvedValue({ ...baseUser, mfaEnabled: true });
       const result = await service.login(email, password);
       expect(result).toEqual({ mfa_required: true });
     });
 
     it('returns tokens when valid TOTP token is provided', async () => {
-      mockUsersService.findByEmail.mockResolvedValue({ ...baseUser, mfaEnabled: true });
+      mockUsersService.findByEmailWithPassword.mockResolvedValue({ ...baseUser, mfaEnabled: true });
       mockMfaService.verifyCode.mockResolvedValue(true);
 
       const result = await service.login(email, password, '123456');
@@ -216,14 +223,14 @@ describe('AuthService', () => {
     });
 
     it('throws UnauthorizedException for invalid MFA code', async () => {
-      mockUsersService.findByEmail.mockResolvedValue({ ...baseUser, mfaEnabled: true });
+      mockUsersService.findByEmailWithPassword.mockResolvedValue({ ...baseUser, mfaEnabled: true });
       mockMfaService.verifyCode.mockResolvedValue(false);
 
       await expect(service.login(email, password, 'wrong')).rejects.toThrow(UnauthorizedException);
     });
 
     it('accepts a valid backup code when TOTP fails', async () => {
-      mockUsersService.findByEmail.mockResolvedValue({ ...baseUser, mfaEnabled: true });
+      mockUsersService.findByEmailWithPassword.mockResolvedValue({ ...baseUser, mfaEnabled: true });
       mockMfaService.verifyCode.mockResolvedValue(true);
 
       const result = await service.login(email, password, 'BACKUPCODE');
@@ -397,6 +404,30 @@ describe('AuthService', () => {
     it('throws BadRequestException for invalid TOTP', async () => {
       mockMfaService.regenerateBackupCodes.mockRejectedValue(new BadRequestException('Invalid MFA code'));
       await expect(service.regenerateBackupCodes('uuid', 'wrong')).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  // ── refresh / logout ──────────────────────────────────────────────────────
+
+  describe('refresh', () => {
+    it('delegates to TokenService.refresh and returns the new token pair', async () => {
+      const pair = { access_token: 'new-access', refresh_token: 'new-refresh' };
+      mockTokenService.refresh.mockResolvedValue(pair);
+      await expect(service.refresh('old-refresh')).resolves.toEqual(pair);
+      expect(mockTokenService.refresh).toHaveBeenCalledWith('old-refresh');
+    });
+
+    it('propagates UnauthorizedException for an invalid refresh token', async () => {
+      mockTokenService.refresh.mockRejectedValue(new UnauthorizedException());
+      await expect(service.refresh('bad')).rejects.toThrow(UnauthorizedException);
+    });
+  });
+
+  describe('logout', () => {
+    it('revokes the refresh token and returns a confirmation message', async () => {
+      mockTokenService.revokeRefreshToken.mockResolvedValue(undefined);
+      await expect(service.logout('refresh', 'uuid')).resolves.toEqual({ message: 'Logged out successfully.' });
+      expect(mockTokenService.revokeRefreshToken).toHaveBeenCalledWith('refresh', 'uuid');
     });
   });
 });
