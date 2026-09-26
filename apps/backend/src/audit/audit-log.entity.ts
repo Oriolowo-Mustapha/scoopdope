@@ -5,6 +5,8 @@ export enum AuditAction {
   LOGIN_FAILURE = 'auth.login.failure',
   LOGOUT = 'auth.logout',
   REGISTER = 'auth.register',
+  TOKEN_REFRESHED = 'auth.token.refreshed',
+  TOKEN_REUSE_DETECTED = 'auth.token.reuse_detected',
   PASSWORD_RESET_REQUEST = 'auth.password_reset.request',
   PASSWORD_RESET_COMPLETE = 'auth.password_reset.complete',
   MFA_ENABLED = 'auth.mfa.enabled',

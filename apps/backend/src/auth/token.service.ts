@@ -25,31 +25,76 @@ export class TokenService {
     private refreshTokenRepo: Repository<RefreshToken>,
     @InjectRepository(ApiKey)
     private apiKeyRepo: Repository<ApiKey>,
-    @Optional() @Inject(CACHE_MANAGER) private cacheManager?: Cache,
+    @Optional() @Inject(CACHE_MANAGER) private cacheManager?: Cache
   ) {}
 
   async issueTokenPair(userId: string, email: string, role = 'student') {
     const access_token = this.jwtService.sign({ sub: userId, email, role }, { expiresIn: '15m' });
     const { token: rawRefresh, hash, expiresAt } = this.generateOpaqueToken(24 * 7);
     await this.refreshTokenRepo.save(
-      this.refreshTokenRepo.create({ tokenHash: hash, userId, expiresAt, revoked: false }),
+      this.refreshTokenRepo.create({ tokenHash: hash, userId, expiresAt, revoked: false })
     );
     await this.cacheSession({ id: userId, email, role });
     return { access_token, refresh_token: rawRefresh };
   }
 
+  /**
+   * Rotates a refresh token (#955).
+   *
+   * Each use issues a brand-new refresh token and invalidates the presented
+   * one, so a refresh token can never be reused indefinitely:
+   *
+   * 1. The presented token is invalidated with a single conditional
+   *    `UPDATE ... WHERE id AND revoked = false`. The `affected` check makes
+   *    rotation atomic — of two concurrent refreshes with the same token,
+   *    exactly one wins and the loser falls into reuse handling.
+   * 2. Presenting an already-rotated (revoked) token is treated as suspected
+   *    theft: the whole token family for that user is revoked, the session
+   *    cache is cleared, the attempt is audit-logged, and the caller gets a
+   *    generic 401 that reveals nothing about which tokens exist.
+   */
   async refresh(rawRefreshToken: string) {
     const hash = this.hashToken(rawRefreshToken);
     const stored = await this.refreshTokenRepo.findOne({
-      where: { tokenHash: hash, revoked: false },
+      where: { tokenHash: hash },
     });
     if (!stored) throw new UnauthorizedException('Invalid or revoked refresh token');
     if (stored.expiresAt < new Date()) throw new UnauthorizedException('Refresh token has expired');
 
-    await this.refreshTokenRepo.save({ ...stored, revoked: true });
+    if (stored.revoked) {
+      await this.handleRefreshTokenReuse(stored.userId, stored.id);
+      throw new UnauthorizedException('Invalid or revoked refresh token');
+    }
+
+    const invalidated = await this.refreshTokenRepo.update(
+      { id: stored.id, revoked: false },
+      { revoked: true }
+    );
+    if ((invalidated.affected ?? 0) === 0) {
+      // Another request rotated this token first — same response as reuse.
+      await this.handleRefreshTokenReuse(stored.userId, stored.id);
+      throw new UnauthorizedException('Invalid or revoked refresh token');
+    }
+
     const user = await this.usersService.findById(stored.userId);
     if (!user) throw new UnauthorizedException('User not found');
-    return this.issueTokenPair(user.id, user.email, user.role);
+    const tokens = await this.issueTokenPair(user.id, user.email, user.role);
+    await this.auditService.log(AuditAction.TOKEN_REFRESHED, user.id, true);
+    return tokens;
+  }
+
+  /**
+   * Responds to a suspected refresh-token replay: revokes every active
+   * refresh token for the user, clears the cached session, and audit-logs
+   * the attempt. Never removes the user or changes credentials — recovery is
+   * simply logging in again.
+   */
+  private async handleRefreshTokenReuse(userId: string, tokenId: string) {
+    await this.refreshTokenRepo.update({ userId, revoked: false }, { revoked: true });
+    await this.clearSession(userId);
+    await this.auditService.log(AuditAction.TOKEN_REUSE_DETECTED, userId, false, {
+      tokenId,
+    });
   }
 
   async revokeRefreshToken(rawRefreshToken: string, userId?: string) {
@@ -84,7 +129,7 @@ export class TokenService {
     const rawKey = `bst_${crypto.randomBytes(32).toString('hex')}`;
     const hash = crypto.createHash('sha256').update(rawKey).digest('hex');
     const key = await this.apiKeyRepo.save(
-      this.apiKeyRepo.create({ name, keyHash: hash, userId, isActive: true }),
+      this.apiKeyRepo.create({ name, keyHash: hash, userId, isActive: true })
     );
     await this.auditService.log(AuditAction.API_KEY_CREATED, userId, true, { name, keyId: key.id });
     return { apiKey: rawKey };
