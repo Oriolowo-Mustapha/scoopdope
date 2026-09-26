@@ -53,6 +53,9 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage/lcov.info
 
+      - name: Run Pact consumer tests
+        run: npm install --workspace=apps/frontend && npm run test:pact --workspace=apps/frontend
+
       - name: Run Pact provider verification
         run: npm run test:pact --workspace=apps/backend
 
