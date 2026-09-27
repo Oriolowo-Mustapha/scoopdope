@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { CacheModule } from '@nestjs/cache-manager';
-import { APP_FILTER, APP_INTERCEPTOR, APP_GUARD } from '@nestjs/core';
+import { APP_GUARD } from '@nestjs/core';
 
 // ── Entities ────────────────────────────────────────────────────────────────────
 
@@ -37,6 +37,7 @@ import { validationSchema } from './config/validation.schema';
 
 import { RateLimitModule } from './rate-limit/rate-limit.module';
 import { UserRateLimitGuard } from './rate-limit/user-rate-limit.guard';
+import { IdempotencyModule } from './common/idempotency/idempotency.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -107,16 +108,9 @@ import { UserRateLimitGuard } from './rate-limit/user-rate-limit.guard';
     RateLimitModule,
     ApiVersionModule,
     MonitoringModule,
+    IdempotencyModule,
   ],
   providers: [
-    {
-      provide: APP_FILTER,
-      useClass: GlobalExceptionFilter,
-    },
-    {
-      provide: APP_INTERCEPTOR,
-      useClass: GlobalErrorInterceptor,
-    },
     {
       provide: APP_GUARD,
       useClass: UserRateLimitGuard,
