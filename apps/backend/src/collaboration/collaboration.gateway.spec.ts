@@ -1,9 +1,11 @@
 import { CollaborationGateway } from './collaboration.gateway';
 import { PresenceService } from './presence.service';
+import { JwtService } from '@nestjs/jwt';
 
 describe('CollaborationGateway', () => {
   let gateway: CollaborationGateway;
   let presence: PresenceService;
+  let jwtService: JwtService;
   let emits: Array<{ room: string; event: string; payload: any }>;
   let mockServer: any;
   let client: any;
@@ -17,9 +19,10 @@ describe('CollaborationGateway', () => {
       emit: (event: string, payload: any) => emits.push({ room: '*', event, payload }),
     };
     presence = new PresenceService();
-    gateway = new CollaborationGateway(presence);
+    jwtService = { verify: jest.fn().mockReturnValue({ sub: 'user1' }) } as any;
+    gateway = new CollaborationGateway(presence, jwtService);
     (gateway as any).server = mockServer;
-    client = { id: 'sock1', join: jest.fn(), leave: jest.fn(), emit: jest.fn() };
+    client = { id: 'sock1', join: jest.fn(), leave: jest.fn(), emit: jest.fn(), disconnect: jest.fn(), handshake: { auth: { token: 'valid-token' } } };
   });
 
   it('onJoin registers presence and broadcasts to the course room', () => {
@@ -83,5 +86,27 @@ describe('CollaborationGateway', () => {
     const notif = emits.find((e) => e.event === 'enrollment-notification' && e.room === 'c1');
     expect(notif).toBeDefined();
     expect(notif!.payload.studentId).toBe('s1');
+  });
+
+  describe('handleConnection', () => {
+    it('disconnects client when no token is provided', async () => {
+      const unauthedClient = { ...client, handshake: { auth: {} }, disconnect: jest.fn() };
+      await gateway.handleConnection(unauthedClient as any);
+      expect(unauthedClient.disconnect).toHaveBeenCalled();
+    });
+
+    it('disconnects client when token is invalid', async () => {
+      jwtService.verify.mockImplementationOnce(() => { throw new Error('Invalid token'); });
+      const unauthedClient = { ...client, handshake: { auth: { token: 'bad-token' } }, disconnect: jest.fn() };
+      await gateway.handleConnection(unauthedClient as any);
+      expect(unauthedClient.disconnect).toHaveBeenCalled();
+    });
+
+    it('allows connection when token is valid', async () => {
+      jwtService.verify.mockReturnValue({ sub: 'user1' });
+      const authedClient = { ...client, handshake: { auth: { token: 'valid-token' } }, disconnect: jest.fn() };
+      await gateway.handleConnection(authedClient as any);
+      expect(authedClient.disconnect).not.toHaveBeenCalled();
+    });
   });
 });
