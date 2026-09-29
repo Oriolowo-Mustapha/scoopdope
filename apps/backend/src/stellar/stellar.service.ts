@@ -14,6 +14,7 @@ import {
   nativeToScVal,
   Address,
 } from '@stellar/stellar-sdk';
+import { sanitizeWalletString, sanitizeWalletError } from './wallet-sanitizer.util';
 
 const MAX_RETRIES = 3;
 const RETRY_OPTIONS = {
@@ -22,7 +23,7 @@ const RETRY_OPTIONS = {
   maxTimeout: 8000,
   onFailedAttempt: (error: any) => {
     Logger.warn(
-      `Attempt ${error.attemptNumber}/${MAX_RETRIES} failed: ${error.message}`
+      sanitizeWalletString(`Attempt ${error.attemptNumber}/${MAX_RETRIES} failed: ${error.message}`)
     );
   },
 };
@@ -257,7 +258,9 @@ export class StellarService implements OnApplicationShutdown {
         this.logger.log(`Progress recorded on Soroban for ${courseId}`);
       } catch (error: any) {
         this.logger.error(
-          `Failed to record progress on Soroban: ${error.message}, falling back to Horizon`
+          sanitizeWalletString(
+            `Failed to record progress on Soroban: ${error.message}, falling back to Horizon`
+          )
         );
         await this.issueCredentialFallback(recipientPublicKey, courseId);
       }
@@ -267,7 +270,7 @@ export class StellarService implements OnApplicationShutdown {
           await pRetry(() => this.storeCredentialMetadata(recipientPublicKey, metadata), RETRY_OPTIONS);
           this.logger.log(`Metadata stored on-chain for ${metadata.courseName}`);
         } catch (error: any) {
-          this.logger.error(`Failed to store metadata on-chain: ${error.message}`);
+          this.logger.error(sanitizeWalletError(error));
         }
       }
 
@@ -451,6 +454,14 @@ export class StellarService implements OnApplicationShutdown {
     this.incrementPendingTransactions();
     try {
       return await fn();
+    } catch (err: any) {
+      if (err instanceof Error) {
+        err.message = sanitizeWalletString(err.message);
+        if (err.stack) {
+          err.stack = sanitizeWalletString(err.stack);
+        }
+      }
+      throw err;
     } finally {
       this.decrementPendingTransactions();
     }

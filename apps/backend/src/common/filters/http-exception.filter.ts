@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { ErrorResponseDto, getHttpStatusPhrase } from '../dto/error-response.dto';
+import { sanitizeWalletString } from '../../stellar/wallet-sanitizer.util';
 
 /**
  * Global exception filter that catches all unhandled exceptions and returns a
@@ -66,8 +67,8 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const errorResponse: ErrorResponseDto = {
       statusCode: status,
       error: getHttpStatusPhrase(status),
-      message,
-      details,
+      message: sanitizeWalletString(message),
+      details: details ? details.map((d) => sanitizeWalletString(d)) : null,
       timestamp: new Date().toISOString(),
       correlationId: request.correlationId,
       path: request.url,

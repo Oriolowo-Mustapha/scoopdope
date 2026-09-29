@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Param, Query, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Param, Query, Body, UseGuards, Req, BadRequestException } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiBody } from '@nestjs/swagger';
 import { StellarService } from './stellar.service';
@@ -129,5 +129,38 @@ export class CredentialsController {
   @ApiResponse({ status: 403, description: 'Forbidden - admin role required' })
   issueCredential(@Body() body: { recipientPublicKey: string; courseId: string }) {
     return this.stellarService.issueCredential(body.recipientPublicKey, body.courseId);
+  }
+}
+
+@ApiTags('wallet')
+@Controller('wallet')
+export class WalletController {
+  constructor(private stellarService: StellarService) {}
+
+  @Get('transactions')
+  @ApiOperation({ summary: 'Get BST token transaction history for authenticated user or query public key' })
+  @ApiResponse({ status: 200, description: 'Returns BST transaction history' })
+  @ApiResponse({ status: 400, description: 'Missing public key' })
+  async getWalletTransactions(
+    @Req() req: any,
+    @Query('publicKey') queryPublicKey?: string,
+    @Query('limit') limit?: string
+  ) {
+    const publicKey = queryPublicKey || req.user?.stellarPublicKey;
+    if (!publicKey) {
+      throw new BadRequestException('A stellar public key query parameter or authenticated wallet is required');
+    }
+    return this.stellarService.getTransactions(publicKey, limit ? parseInt(limit, 10) : 10);
+  }
+
+  @Get('transactions/:publicKey')
+  @ApiOperation({ summary: 'Get BST token transaction history by public key' })
+  @ApiResponse({ status: 200, description: 'Returns BST transaction history' })
+  @ApiResponse({ status: 400, description: 'Bad request' })
+  async getTransactionsByPublicKey(
+    @Param('publicKey') publicKey: string,
+    @Query('limit') limit?: string
+  ) {
+    return this.stellarService.getTransactions(publicKey, limit ? parseInt(limit, 10) : 10);
   }
 }
