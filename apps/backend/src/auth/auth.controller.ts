@@ -236,7 +236,7 @@ export class AuthController {
   @ApiOperation({
     summary: 'Login with email and password',
     description:
-      'Authenticates a user and returns JWT tokens along with the user profile. Rate-limited to 5 attempts per minute per IP to prevent brute-force attacks. Returns 401 for both unknown email and incorrect password to avoid user enumeration.',
+      'Authenticates a user and returns JWT tokens along with the user profile. Rate-limited to 5 attempts per minute per IP to prevent brute-force attacks. Returns 401 for both unknown email and incorrect password to avoid user enumeration. Independently of the per-IP limit, an account is locked for a cooldown period after too many consecutive failed attempts, which returns 423 along with the number of seconds to wait.',
   })
   @ApiBody({ type: LoginDto })
   @ApiResponse({
