@@ -23,6 +23,7 @@ import { ApiKeyStrategy } from './api-key.strategy';
 import { ApiKeyAuthGuard } from './api-key-auth.guard';
 import { AuditModule } from '../audit/audit.module';
 import { GoogleStrategy } from './google.strategy';
+import { SessionService } from './session.service';
 import { MicrosoftStrategy } from './microsoft.strategy';
 import { UserDeactivationModule } from '../user-deactivation/user-deactivation.module';
 
@@ -53,6 +54,7 @@ import { UserDeactivationModule } from '../user-deactivation/user-deactivation.m
   providers: [
     AuthService,
     TokenService,
+    SessionService,
     MfaService,
     OAuthService,
     StellarAuthService,

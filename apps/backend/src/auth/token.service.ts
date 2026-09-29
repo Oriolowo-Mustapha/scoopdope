@@ -10,6 +10,7 @@ import { AuditService } from '../audit/audit.service';
 import { AuditAction } from '../audit/audit-log.entity';
 import { RefreshToken } from './refresh-token.entity';
 import { ApiKey } from './api-key.entity';
+import { SessionService } from './session.service';
 import * as crypto from 'crypto';
 
 @Injectable()
@@ -25,6 +26,7 @@ export class TokenService {
     private refreshTokenRepo: Repository<RefreshToken>,
     @InjectRepository(ApiKey)
     private apiKeyRepo: Repository<ApiKey>,
+    private sessionService: SessionService,
     @Optional() @Inject(CACHE_MANAGER) private cacheManager?: Cache,
   ) {}
 
@@ -34,6 +36,7 @@ export class TokenService {
     await this.refreshTokenRepo.save(
       this.refreshTokenRepo.create({ tokenHash: hash, userId, expiresAt, revoked: false }),
     );
+    await this.sessionService.create(hash, userId);
     await this.cacheSession({ id: userId, email, role });
     return { access_token, refresh_token: rawRefresh };
   }
@@ -45,8 +48,12 @@ export class TokenService {
     });
     if (!stored) throw new UnauthorizedException('Invalid or revoked refresh token');
     if (stored.expiresAt < new Date()) throw new UnauthorizedException('Refresh token has expired');
+    if (!(await this.sessionService.exists(hash))) {
+      throw new UnauthorizedException('Session has expired');
+    }
 
     await this.refreshTokenRepo.save({ ...stored, revoked: true });
+    await this.sessionService.remove(hash);
     const user = await this.usersService.findById(stored.userId);
     if (!user) throw new UnauthorizedException('User not found');
     return this.issueTokenPair(user.id, user.email, user.role);
@@ -57,6 +64,10 @@ export class TokenService {
     const stored = await this.refreshTokenRepo.findOne({
       where: { tokenHash: hash, revoked: false },
     });
+    if (stored) {
+      await this.refreshTokenRepo.save({ ...stored, revoked: true });
+      await this.sessionService.remove(hash);
+    }
     if (stored) await this.refreshTokenRepo.save({ ...stored, revoked: true });
     if (stored) await this.clearSession(stored.userId);
     await this.auditService.log(AuditAction.LOGOUT, userId ?? stored?.userId ?? null, true);
