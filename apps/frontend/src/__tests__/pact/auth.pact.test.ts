@@ -4,7 +4,7 @@ import axios from 'axios';
 const pact = new PactV3({
   consumer: 'Scoopdope-Frontend',
   provider: 'Scoopdope-Backend',
-  dir: './pacts',
+  dir: '../../pacts',
 });
 
 describe('Auth API Contract Tests', () => {

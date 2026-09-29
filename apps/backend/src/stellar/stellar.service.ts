@@ -14,7 +14,7 @@ import {
   nativeToScVal,
   Address,
 } from '@stellar/stellar-sdk';
-import { sanitizeWalletString, sanitizeWalletError } from './wallet-sanitizer.util';
+import { redactErrorMessage } from '../common/utils/log-redactor';
 
 const MAX_RETRIES = 3;
 const RETRY_OPTIONS = {
@@ -22,8 +22,10 @@ const RETRY_OPTIONS = {
   minTimeout: 1000,
   maxTimeout: 8000,
   onFailedAttempt: (error: any) => {
+    // #970 — the retry logger has no class context, so it is also the easiest
+    // place for a `Keypair.fromSecret` failure to print the issuer seed.
     Logger.warn(
-      sanitizeWalletString(`Attempt ${error.attemptNumber}/${MAX_RETRIES} failed: ${error.message}`)
+      `Attempt ${error.attemptNumber}/${MAX_RETRIES} failed: ${redactErrorMessage(error)}`
     );
   },
 };
@@ -258,9 +260,7 @@ export class StellarService implements OnApplicationShutdown {
         this.logger.log(`Progress recorded on Soroban for ${courseId}`);
       } catch (error: any) {
         this.logger.error(
-          sanitizeWalletString(
-            `Failed to record progress on Soroban: ${error.message}, falling back to Horizon`
-          )
+          `Failed to record progress on Soroban: ${redactErrorMessage(error)}, falling back to Horizon`
         );
         await this.issueCredentialFallback(recipientPublicKey, courseId);
       }
@@ -270,7 +270,7 @@ export class StellarService implements OnApplicationShutdown {
           await pRetry(() => this.storeCredentialMetadata(recipientPublicKey, metadata), RETRY_OPTIONS);
           this.logger.log(`Metadata stored on-chain for ${metadata.courseName}`);
         } catch (error: any) {
-          this.logger.error(sanitizeWalletError(error));
+          this.logger.error(`Failed to store metadata on-chain: ${redactErrorMessage(error)}`);
         }
       }
 

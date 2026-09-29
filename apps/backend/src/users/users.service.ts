@@ -41,6 +41,13 @@ export class UsersService {
       .getOne();
   }
 
+  async updateFailedLoginAttempts(userId: string, failedAttempts: number, lockoutUntil: Date | null): Promise<void> {
+    await this.repo.update(userId, {
+      failedLoginAttempts: failedAttempts,
+      lockoutUntil: lockoutUntil,
+    });
+  }
+
   findByVerificationToken(hash: string) {
     return this.repo.findOne({ where: { verificationToken: hash } });
   }
@@ -216,6 +223,19 @@ export class UsersService {
     const user = await this.findById(id);
     if (!user) throw new NotFoundException('User not found');
     return this.repo.save({ ...user, isBanned });
+  }
+
+  /**
+   * #960 – Persist the account lockout counters.
+   *
+   * Kept out of the self-service `update()` whitelist on purpose: these fields
+   * are written by the auth flow only, never from a user-supplied payload.
+   */
+  async updateLoginLockout(
+    id: string,
+    data: { failedLoginAttempts: number; lastFailedLoginAt: Date | null; lockedUntil: Date | null },
+  ) {
+    await this.repo.update(id, data);
   }
 
   /**

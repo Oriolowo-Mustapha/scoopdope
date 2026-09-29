@@ -3,9 +3,10 @@ import './instrument';
 import * as compression from 'compression';
 import * as express from 'express';
 import { NestFactory } from '@nestjs/core';
+import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { ValidationPipe, Logger } from '@nestjs/common';
+import { ValidationPipe, Logger, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { ValidationExceptionFilter } from './common/filters/validation-exception.filter';
@@ -18,6 +19,8 @@ import { writeFileSync } from 'fs';
 import { join } from 'path';
 import { MetricsInterceptor } from './metrics/metrics.interceptor';
 import { MetricsService } from './metrics/metrics.service';
+import { IdempotencyInterceptor } from './common/idempotency/idempotency.interceptor';
+import { IdempotencyService } from './common/idempotency/idempotency.service';
 import { AppDataSource } from './data-source';
 import {
   API_VERSION_HEADER,
@@ -67,9 +70,7 @@ async function runMigrationCommand(command: string) {
 }
 
 async function bootstrap() {
-  const migrationCommand = process.argv
-    .slice(2)
-    .find((a) => a.startsWith('migration:'));
+  const app = await NestFactory.create(AppModule);
 
   if (migrationCommand) {
     await runMigrationCommand(migrationCommand);
@@ -136,7 +137,8 @@ async function bootstrap() {
   app.useGlobalFilters(new HttpExceptionFilter(), new ValidationExceptionFilter());
   app.useGlobalInterceptors(
     new TransformInterceptor(),
-    new MetricsInterceptor(app.get(MetricsService))
+    new MetricsInterceptor(app.get(MetricsService)),
+    new IdempotencyInterceptor(app.get(IdempotencyService)),
   );
 
   const corsOrigins = configService.get<string[]>('cors.origins') || ['http://localhost:3001'];
@@ -144,14 +146,15 @@ async function bootstrap() {
   const corsPreflight = configService.get<number>('cors.maxAge') ?? 86400;
 
   app.enableCors({
-    origin: nodeEnv === 'production' ? corsOrigins : true,
+    origin: corsOrigins,
     methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-API-KEY', 'X-Webhook-Signature'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-API-KEY', 'X-Webhook-Signature', 'Idempotency-Key'],
+    exposedHeaders: ['X-Request-ID'],
     credentials: corsCredentials,
     maxAge: corsPreflight,
   });
 
-  const v1Info = getVersionInfo('v1');
+  app.enableCors();
 
   const config = new DocumentBuilder()
     .setTitle('scoopdope API')

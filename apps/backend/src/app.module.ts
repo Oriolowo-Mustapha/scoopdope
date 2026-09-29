@@ -117,14 +117,6 @@ const BODY_SIZE_LIMIT = '1mb';
   ],
   providers: [
     {
-      provide: APP_FILTER,
-      useClass: GlobalExceptionFilter,
-    },
-    {
-      provide: APP_INTERCEPTOR,
-      useClass: GlobalErrorInterceptor,
-    },
-    {
       provide: APP_GUARD,
       useClass: UserRateLimitGuard,
     },
