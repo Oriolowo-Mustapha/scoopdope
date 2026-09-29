@@ -275,4 +275,33 @@ describe('useNotifications', () => {
 
     expect(io).not.toHaveBeenCalled();
   });
+
+  it('deduplicates notifications received on reconnect (notifications:init + notification event)', async () => {
+    const { result } = renderHook(() => useNotifications());
+
+    // Simulate reconnect: initial load with an unread notification
+    const existingUnread = {
+      id: '1',
+      type: 'enrollment',
+      message: 'Enrolled in course',
+      isRead: false,
+      createdAt: new Date().toISOString(),
+    };
+    eventHandlers['notifications:init']([existingUnread]);
+
+    await waitFor(() => {
+      expect(result.current.notifications).toHaveLength(1);
+      expect(result.current.unreadCount).toBe(1);
+    });
+
+    // Simulate the gateway re-delivering the same unread notification
+    // as a 'notification' event (as happens on reconnect for offline users)
+    eventHandlers['notification'](existingUnread);
+
+    await waitFor(() => {
+      // Should still be 1 — duplicate must not be added
+      expect(result.current.notifications).toHaveLength(1);
+      expect(result.current.unreadCount).toBe(1);
+    });
+  });
 });

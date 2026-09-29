@@ -191,20 +191,22 @@ Example preference shape:
 | Channel | Guarantee |
 |---------|-----------|
 | Database (PostgreSQL) | Durable — notifications are persisted before the WebSocket emit. If the emit fails, the notification is still retrievable via `GET /v1/notifications`. |
-| WebSocket | At-most-once — if the client is offline at the time of emit, the event is not queued. The client should fetch missed notifications via the REST API on reconnect. |
+| WebSocket | At-most-once for online clients — if the client is offline at the time of emit, the event is not queued by Socket.IO. On reconnect, the gateway re-delivers all unread notifications as individual `notification` events so the frontend can trigger sounds and visual feedback. |
 | Email | Depends on SMTP provider reliability. No retry logic is built in; add a queue (e.g., Bull) for production resilience. |
 
 ### Handling missed WebSocket events
 
-On reconnect, fetch unread notifications from the REST API and reconcile with local state:
+On reconnect, the gateway automatically re-emits all unread notifications as `notification` events. The frontend deduplicates them against the `notifications:init` payload so each notification appears exactly once with full audio/visual feedback:
 
 ```javascript
-socket.on('connect', async () => {
-  const res = await fetch('/v1/notifications', {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  const notifications = await res.json();
-  const unread = notifications.filter((n) => !n.isRead);
-  // render unread notifications
+socket.on('notifications:init', (notifications) => {
+  // Full list of notifications (read + unread)
+  renderNotifications(notifications);
+});
+
+socket.on('notification', (notification) => {
+  // Unread notifications re-delivered on reconnect (deduplicated by ID on the client)
+  // Triggers sound, pulse animation, and badge update
+  addNotification(notification);
 });
 ```
