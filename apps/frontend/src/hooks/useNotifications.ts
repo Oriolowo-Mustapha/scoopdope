@@ -28,6 +28,7 @@ export function useNotifications() {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [playSound, setPlaySound] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const playSoundTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Initialize audio element
   useEffect(() => {
@@ -67,7 +68,13 @@ export function useNotifications() {
       }
       
       // Reset pulse animation after delay
-      setTimeout(() => setPlaySound(false), 1000);
+      if (playSoundTimeoutRef.current) {
+        clearTimeout(playSoundTimeoutRef.current);
+      }
+      playSoundTimeoutRef.current = setTimeout(() => {
+        setPlaySound(false);
+        playSoundTimeoutRef.current = null;
+      }, 1000);
     });
 
     // Server confirms mark-as-read
@@ -78,8 +85,13 @@ export function useNotifications() {
     });
 
     return () => {
+      socket.removeAllListeners();
       socket.disconnect();
       socketRef.current = null;
+      if (playSoundTimeoutRef.current) {
+        clearTimeout(playSoundTimeoutRef.current);
+        playSoundTimeoutRef.current = null;
+      }
     };
   }, [token]);
 
