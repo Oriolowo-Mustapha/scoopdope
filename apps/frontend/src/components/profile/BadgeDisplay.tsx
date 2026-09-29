@@ -18,6 +18,17 @@ const tierStyles = {
   gold: 'border-yellow-500 bg-yellow-50 dark:bg-yellow-950/30',
 };
 
+const icons: Record<string, string> = {
+  'graduation-cap': '🎓',
+  books: '📚',
+  trophy: '🏆',
+  flame: '🔥',
+  'heart-handshake': '🤝',
+};
+
+export default function BadgeDisplay({ badges, loading = false }: { badges: BadgeProgress[]; loading?: boolean }) {
+  if (loading) return <p role="status">Loading badges...</p>;
+
 export default function BadgeDisplay({ badges, loading = false }: { badges: BadgeProgress[]; loading?: boolean }) {
   if (loading) return <p role="status">Loading badges...</p>;
   return (
@@ -30,6 +41,19 @@ export default function BadgeDisplay({ badges, loading = false }: { badges: Badg
             className={`rounded-lg border p-4 ${tierStyles[badge.tier]} ${badge.earned ? '' : 'opacity-60 grayscale'}`}
           >
             <div className="flex items-start justify-between gap-2">
+              <span className="text-2xl" aria-hidden="true">{icons[badge.icon] ?? '🏅'}</span>
+              <span className="text-xs font-semibold uppercase">{badge.tier}</span>
+            </div>
+            <h3 className="mt-2 font-semibold">{badge.name}</h3>
+            <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
+              {badge.earned ? badge.description : `${badge.progress}/${badge.threshold}`}
+            </p>
+            <progress
+              className="mt-3 h-2 w-full"
+              value={badge.progress}
+              max={badge.threshold}
+              aria-label={`${badge.name} progress`}
+            />
               <span className="text-2xl" aria-hidden="true">{badge.icon === 'flame' ? '🔥' : badge.icon === 'trophy' ? '🏆' : badge.icon === 'heart-handshake' ? '🤝' : badge.icon === 'books' ? '📚' : '🎓'}</span>
               <span className="text-xs font-semibold uppercase">{badge.tier}</span>
             </div>
