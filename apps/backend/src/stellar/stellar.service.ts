@@ -1,4 +1,12 @@
-import { Injectable, Logger, Inject, ServiceUnavailableException, OnApplicationShutdown } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  Inject,
+  ServiceUnavailableException,
+  BadRequestException,
+  GatewayTimeoutException,
+  OnApplicationShutdown,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Cache } from 'cache-manager';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
@@ -123,8 +131,18 @@ export class StellarService implements OnApplicationShutdown {
    * @throws {Error} on network failure when contacting the Horizon server.
    */
   async getAccountBalance(publicKey: string) {
-    const account = await this.server.loadAccount(publicKey);
-    return account.balances;
+    try {
+      const account = await pRetry(() => this.server.loadAccount(publicKey), RETRY_OPTIONS);
+      return account.balances;
+    } catch (err: any) {
+      if (err?.code === 'ETIMEDOUT' || err?.message?.toLowerCase().includes('timeout') || err?.message?.toLowerCase().includes('timed out')) {
+        throw new GatewayTimeoutException('Network timeout while querying Stellar account balance');
+      }
+      if (err?.response?.status === 503 || err?.message?.includes('503')) {
+        throw new ServiceUnavailableException('Stellar Horizon API is temporarily unavailable (503). Please retry.');
+      }
+      throw err;
+    }
   }
 
   /**
@@ -254,6 +272,14 @@ export class StellarService implements OnApplicationShutdown {
     metadata?: { courseName: string; grade: string; skills: string[] }
   ): Promise<string> {
     this.ensureSecretKeyConfigured();
+
+    const idempotencyKey = `idempotency:credential:${courseId}:${recipientPublicKey}`;
+    const cachedTx = await this.cacheManager.get<string>(idempotencyKey);
+    if (cachedTx) {
+      this.logger.log(`Credential for ${recipientPublicKey} (${courseId}) already issued: ${cachedTx}`);
+      return cachedTx;
+    }
+
     return this.trackTransaction(async () => {
       try {
         await pRetry(() => this.recordProgressOnChain(recipientPublicKey, courseId), RETRY_OPTIONS);
@@ -274,7 +300,9 @@ export class StellarService implements OnApplicationShutdown {
         }
       }
 
-      return this.mintCredentialViaHorizon(recipientPublicKey, courseId);
+      const txHash = await this.mintCredentialViaHorizon(recipientPublicKey, courseId);
+      await this.cacheManager.set(idempotencyKey, txHash, 7 * 24 * 3600 * 1000);
+      return txHash;
     });
   }
 
@@ -544,11 +572,83 @@ export class StellarService implements OnApplicationShutdown {
       .setTimeout(30)
       .build();
 
-    const prepared = await this.sorobanServer.prepareTransaction(tx);
-    (prepared as any).sign(issuerKeypair);
-    const result = await this.sorobanServer.sendTransaction(prepared as any);
-    this.logger.log(`Contract ${method} tx: ${result.hash}`);
-    return result.hash;
+    try {
+      const prepared = await this.sorobanServer.prepareTransaction(tx);
+      (prepared as any).sign(issuerKeypair);
+      const result = await this.sorobanServer.sendTransaction(prepared as any);
+      this.logger.log(`Contract ${method} tx: ${result.hash}`);
+      return result.hash;
+    } catch (err: any) {
+      const msg = err?.message || String(err);
+      if (
+        msg.toLowerCase().includes('insufficient balance') ||
+        msg.includes('op_insufficient_balance') ||
+        msg.toLowerCase().includes('underfunded') ||
+        msg.toLowerCase().includes('insufficient funds')
+      ) {
+        throw new BadRequestException(
+          'User wallet has insufficient BST tokens to complete this operation'
+        );
+      }
+      if (
+        err?.code === 'ETIMEDOUT' ||
+        msg.toLowerCase().includes('timeout') ||
+        msg.toLowerCase().includes('timed out')
+      ) {
+        throw new GatewayTimeoutException('Stellar network operation timed out. Please try again later.');
+      }
+      throw err;
+    }
+  }
+
+  /**
+   * Transfers BST tokens between Stellar accounts via the Token Soroban contract.
+   * Catches unhandled errors when a user wallet has insufficient BST tokens
+   * and returns a descriptive error message instead (#963).
+   */
+  async transferTokens(fromPublicKey: string, toPublicKey: string, amount: number): Promise<string> {
+    this.ensureSecretKeyConfigured();
+    if (!this.tokenContractId) {
+      throw new Error('TOKEN_CONTRACT_ID not configured');
+    }
+
+    try {
+      const balanceStr = await this.getBstBalance(fromPublicKey);
+      const balance = BigInt(balanceStr);
+      if (balance < BigInt(amount)) {
+        throw new BadRequestException(
+          `User wallet has insufficient BST tokens to complete this transaction. Available: ${balance}, Required: ${amount}`
+        );
+      }
+    } catch (err: any) {
+      if (err instanceof BadRequestException) throw err;
+    }
+
+    try {
+      return await this.trackTransaction(() =>
+        pRetry(
+          () =>
+            this.invokeContract(this.tokenContractId, 'transfer', [
+              new Address(fromPublicKey).toScVal(),
+              new Address(toPublicKey).toScVal(),
+              nativeToScVal(amount, { type: 'i128' }),
+            ]),
+          RETRY_OPTIONS
+        )
+      );
+    } catch (error: any) {
+      const message = error?.message || String(error);
+      if (
+        message.toLowerCase().includes('insufficient balance') ||
+        message.includes('op_insufficient_balance') ||
+        message.toLowerCase().includes('underfunded')
+      ) {
+        throw new BadRequestException(
+          'User wallet has insufficient BST tokens to complete this transaction'
+        );
+      }
+      throw error;
+    }
   }
 
   private async mintCredentialViaHorizon(
@@ -557,24 +657,45 @@ export class StellarService implements OnApplicationShutdown {
   ): Promise<string> {
     this.ensureSecretKeyConfigured();
     const issuerKeypair = Keypair.fromSecret(this.secretKey);
-    const issuerAccount = await this.server.loadAccount(issuerKeypair.publicKey());
+    try {
+      const issuerAccount = await this.server.loadAccount(issuerKeypair.publicKey());
 
-    const tx = new TransactionBuilder(issuerAccount, {
-      fee: BASE_FEE,
-      networkPassphrase: this.networkPassphrase,
-    })
-      .addOperation(
-        Operation.manageData({
-          name: `scoopdope:credential:${courseId}`,
-          value: recipientPublicKey,
-        })
-      )
-      .setTimeout(30)
-      .build();
+      const tx = new TransactionBuilder(issuerAccount, {
+        fee: BASE_FEE,
+        networkPassphrase: this.networkPassphrase,
+      })
+        .addOperation(
+          Operation.manageData({
+            name: `scoopdope:credential:${courseId}`,
+            value: recipientPublicKey,
+          })
+        )
+        .setTimeout(30)
+        .build();
 
-    tx.sign(issuerKeypair);
-    const result = await this.server.submitTransaction(tx);
-    this.logger.log(`Credential issued via Horizon: ${result.hash}`);
-    return result.hash;
+      tx.sign(issuerKeypair);
+      const result = await this.server.submitTransaction(tx);
+      this.logger.log(`Credential issued via Horizon: ${result.hash}`);
+      return result.hash;
+    } catch (err: any) {
+      if (
+        err?.response?.status === 503 ||
+        err?.message?.includes('503') ||
+        err?.code === 'ETIMEDOUT' ||
+        err?.message?.toLowerCase().includes('timeout')
+      ) {
+        this.logger.warn(
+          `Horizon API returned 503 or timed out. Queuing credential write for course ${courseId} and recipient ${recipientPublicKey}`
+        );
+        const queuedId = `queued_tx_${Date.now()}`;
+        await this.cacheManager.set(
+          `queue:credential:${courseId}:${recipientPublicKey}`,
+          { recipientPublicKey, courseId, queuedAt: Date.now() },
+          7 * 24 * 3600 * 1000
+        );
+        return queuedId;
+      }
+      throw err;
+    }
   }
 }
