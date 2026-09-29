@@ -6,9 +6,9 @@ import {
   OnGatewayInit,
   SubscribeMessage,
 } from '@nestjs/websockets';
+import { Logger, OnModuleDestroy } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
-import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createAdapter } from '@socket.io/redis-adapter';
 import Redis from 'ioredis';
@@ -18,10 +18,11 @@ import { Notification } from './notification.entity';
 
 @WebSocketGateway({ cors: { origin: '*' }, namespace: '/notifications' })
 export class NotificationsGateway
-  implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit
+  implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit, OnModuleDestroy
 {
   @WebSocketServer() server: Server;
   private readonly logger = new Logger(NotificationsGateway.name);
+  private redisClients: Redis[] = [];
 
   constructor(
     private jwtService: JwtService,
@@ -38,8 +39,14 @@ export class NotificationsGateway
     }
     const pubClient = new Redis(redisUrl);
     const subClient = pubClient.duplicate();
+    this.redisClients = [pubClient, subClient];
     server.adapter(createAdapter(pubClient, subClient));
     this.logger.log('Redis adapter attached to Socket.IO');
+  }
+
+  async onModuleDestroy(): Promise<void> {
+    await Promise.all(this.redisClients.map((client) => client.quit()));
+    this.redisClients = [];
   }
 
   async handleConnection(client: Socket) {
@@ -52,14 +59,25 @@ export class NotificationsGateway
       const payload = this.jwtService.verify<{ sub: string }>(token);
       const userId = payload.sub;
       client.join(`user:${userId}`);
-      
-      // Send initial notifications on connect
+
+      // Send full initial notifications on connect
       const notifications = await this.notificationRepo.find({
         where: { userId },
         order: { isRead: 'ASC', createdAt: 'DESC' },
       });
       client.emit('notifications:init', notifications);
-      
+
+      // Re-deliver unread notifications as individual events so the
+      // frontend can trigger sounds / visual feedback for ones the
+      // user missed while offline.
+      const unreadNotifications = await this.notificationRepo.find({
+        where: { userId, isRead: false },
+        order: { createdAt: 'ASC' },
+      });
+      for (const notification of unreadNotifications) {
+        client.emit('notification', notification);
+      }
+
       this.logger.debug(`Client connected: ${client.id}, user: ${userId}`);
     } catch {
       client.disconnect();

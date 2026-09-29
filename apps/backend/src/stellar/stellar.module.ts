@@ -1,6 +1,6 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { StellarService } from './stellar.service';
-import { StellarController, CredentialsController } from './stellar.controller';
+import { StellarController, CredentialsController, WalletController } from './stellar.controller';
 import { NetworkMonitorService } from './network-monitor.service';
 import { StellarIndexerService } from './stellar-indexer.service';
 import { CredentialsModule } from '../credentials/credentials.module';
@@ -14,7 +14,7 @@ import { UsersModule } from '../users/users.module';
     forwardRef(() => UsersModule),
   ],
   providers: [StellarService, NetworkMonitorService, StellarIndexerService],
-  controllers: [StellarController, CredentialsController],
+  controllers: [StellarController, CredentialsController, WalletController],
   exports: [StellarService, NetworkMonitorService],
 })
 export class StellarModule {}

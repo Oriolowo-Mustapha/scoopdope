@@ -129,14 +129,16 @@ export class BundlesService {
       where: { userId, completedAt: IsNull() },
       relations: ['bundle', 'bundle.courses'],
     });
+    const userEnrollments = bundleEnrollments.length
+      ? await this.enrollmentsService.findByUser(userId)
+      : [];
+    let user: Awaited<ReturnType<UsersService['findById']>> | undefined;
 
     for (const enrollment of bundleEnrollments) {
       const isCourseInBundle = enrollment.bundle.courses.some((c) => c.id === courseId);
       if (isCourseInBundle) {
         // Check if ALL courses in this bundle are completed
         const courseIds = enrollment.bundle.courses.map((c) => c.id);
-        const userEnrollments = await this.enrollmentsService.findByUser(userId);
-        
         const bundleCoursesEnrollments = userEnrollments.filter((e) => courseIds.includes(e.courseId));
         const allCompleted = bundleCoursesEnrollments.length === courseIds.length && 
                              bundleCoursesEnrollments.every((e) => e.completedAt !== null);
@@ -146,7 +148,7 @@ export class BundlesService {
           await this.bundleEnrollmentRepo.save(enrollment);
           
           // Issue bundle completion certificate
-          const user = await this.usersService.findById(userId);
+          user ??= await this.usersService.findById(userId);
           if (user?.stellarPublicKey) {
             await this.credentialsService.issueBundle(userId, enrollment.bundleId, user.stellarPublicKey);
           }

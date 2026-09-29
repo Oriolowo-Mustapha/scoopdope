@@ -107,13 +107,16 @@ export class LearningPathsService {
       where: { userId, completedAt: IsNull() },
       relations: ['learningPath', 'learningPath.courses'],
     });
+    const userEnrollments = enrollments.length
+      ? await this.enrollmentsService.findByUser(userId)
+      : [];
+    let user: Awaited<ReturnType<UsersService['findById']>> | undefined;
 
     for (const enrollment of enrollments) {
       const inPath = enrollment.learningPath.courses.some((c) => c.id === courseId);
       if (!inPath) continue;
 
       const courseIds = enrollment.learningPath.courses.map((c) => c.id);
-      const userEnrollments = await this.enrollmentsService.findByUser(userId);
       const pathEnrollments = userEnrollments.filter((e) => courseIds.includes(e.courseId));
       const allCompleted =
         pathEnrollments.length === courseIds.length &&
@@ -123,7 +126,7 @@ export class LearningPathsService {
         enrollment.completedAt = new Date();
         await this.enrollmentRepo.save(enrollment);
 
-        const user = await this.usersService.findById(userId);
+        user ??= await this.usersService.findById(userId);
         if (user?.stellarPublicKey) {
           await this.credentialsService.issueLearningPath(
             userId,

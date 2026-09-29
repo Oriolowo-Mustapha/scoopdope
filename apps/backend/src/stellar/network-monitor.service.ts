@@ -17,10 +17,22 @@ export class NetworkMonitorService implements OnModuleInit {
     };
   }
 
-  async onModuleInit() {
-    await this.checkHealth();
+  onModuleInit() {
+    void this.checkHealth().catch((error: unknown) => {
+      this.logger.error(
+        'Initial Stellar health check failed',
+        error instanceof Error ? error.stack : String(error),
+      );
+    });
     // Regular health checks every 60 seconds
-    setInterval(() => this.checkHealth(), 60000);
+    setInterval(() => {
+      void this.checkHealth().catch((error: unknown) => {
+        this.logger.error(
+          'Scheduled Stellar health check failed',
+          error instanceof Error ? error.stack : String(error),
+        );
+      });
+    }, 60000);
   }
 
   private async checkService(url: string, _type: 'horizon' | 'soroban'): Promise<ServiceStatus> {

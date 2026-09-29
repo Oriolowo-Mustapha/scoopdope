@@ -47,6 +47,7 @@ export default function RegisterPage() {
     register,
     handleSubmit,
     watch,
+    setError,
     formState: { errors },
   } = useForm<FormData>({ resolver: zodResolver(schema) });
 
@@ -92,9 +93,20 @@ export default function RegisterPage() {
       login(res.data.access_token, res.data.user);
       setIsLoading(false);
       router.push('/dashboard');
-    } catch (error) {
+    } catch (error: any) {
       setIsLoading(false);
-      // Let any global interceptors handle error toast if needed
+      const messages = error?.response?.data?.message;
+      const validationMessages = Array.isArray(messages) ? messages : [messages];
+      for (const message of validationMessages) {
+        if (typeof message !== 'string') continue;
+        const lowerMessage = message.toLowerCase();
+        const field = lowerMessage.includes('email')
+          ? 'email'
+          : lowerMessage.includes('password')
+            ? 'password'
+            : null;
+        if (field) setError(field, { type: 'server', message });
+      }
     }
   };
 

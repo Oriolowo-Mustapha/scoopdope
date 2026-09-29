@@ -6,6 +6,7 @@ import { connectFreighter, fetchXlmBalance, fetchBstBalance } from '@/lib/wallet
 import { TestnetFaucet } from './TestnetFaucet';
 import { Modal } from '@/components/ui/Modal';
 import { RefreshCw } from 'lucide-react';
+import { WalletAddress } from './WalletAddress';
 
 interface WalletMenuProps {
   onClose: () => void;
@@ -116,7 +117,7 @@ export function WalletMenu({ onClose }: WalletMenuProps) {
     >
       <div>
         <p className="text-xs text-gray-500 mb-0.5">Connected Wallet</p>
-        <p className="font-mono text-xs break-all">{address}</p>
+        {address && <WalletAddress address={address} className="font-mono" />}
       </div>
       <div>
         <p className="text-xs text-gray-500 mb-0.5">XLM Balance</p>

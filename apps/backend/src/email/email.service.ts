@@ -27,7 +27,7 @@ export class EmailService implements OnModuleInit, OnModuleDestroy {
     private config: ConfigService,
   ) {}
 
-  async onModuleInit() {
+  onModuleInit() {
     this.transporter = nodemailer.createTransport({
       host: this.config.get<string>('mail.host'),
       port: this.config.get<number>('mail.port'),
@@ -36,7 +36,7 @@ export class EmailService implements OnModuleInit, OnModuleDestroy {
     });
 
     // Set up PostgreSQL LISTEN/NOTIFY for instant queue processing
-    await this.setupPgListener();
+    void this.setupPgListener();
 
     // Safety fallback — process any missed notifications every 60s
     this.safetyTimer = setInterval(() => this.processQueue(), 60_000);
