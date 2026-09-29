@@ -68,6 +68,23 @@ export class AuthService {
   }
 
   async register(email: string, password: string, refCode?: string) {
+    const commonPasswords = new Set([
+      'password',
+      'password123',
+      '123456',
+      '12345678',
+      '123456789',
+      'qwerty',
+      'admin',
+      'welcome',
+      'letmein',
+      'abc12345',
+      'iloveyou',
+    ]);
+    if (commonPasswords.has(password.toLowerCase())) {
+      throw new BadRequestException('Password is too common and easily guessable');
+    }
+
     const existing = await this.usersService.findByEmail(email);
     if (existing) throw new ConflictException('Email already in use');
 
