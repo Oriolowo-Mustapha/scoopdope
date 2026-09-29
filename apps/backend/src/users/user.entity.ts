@@ -56,7 +56,79 @@ export class User {
   isEmailVerified: boolean;
 
   @Column({ nullable: true })
+  deletedAt: Date;
+
+  @Column({ nullable: true, type: 'varchar' })
+  verificationToken: string | null;
+
+  @Column({ nullable: true, type: 'datetime' })
+  verificationTokenExpiresAt: Date | null;
+
+  @Column({ default: false })
+  mfaEnabled: boolean;
+
+  @Column({ nullable: true })
+  mfaSecret: string | null;
+
+  @Column({ type: 'simple-array', nullable: true, default: null })
+  mfaBackupCodes: string[] | null;
+
+  @Column({ unique: true, nullable: true })
+  referralCode: string;
+
+  @Column({ nullable: true, type: 'varchar' })
+  referredBy: string | null;
+
+  @Column({ default: 0 })
+  currentStreak: number;
+
+  @Column({ default: 0 })
+  longestStreak: number;
+
+  @Column({ default: false })
+  leaderboardOptOut: boolean;
+
+  @Column({ nullable: true, type: 'datetime' })
+  lastActivityAt: Date | null;
+
+  @Column({
+    type: 'enum',
+    enum: SubscriptionTier,
+    default: SubscriptionTier.FREE,
+  })
+  subscriptionTier: SubscriptionTier;
+
+  @Column({ nullable: true })
+  stripeCustomerId: string;
+
+  @Column({ nullable: true })
+  stripeSubscriptionId: string;
+
+  @Column({ nullable: true, type: 'datetime' })
+  subscriptionExpiresAt: Date | null;
+
+  @Column('simple-json', {
+    nullable: true,
+    default: {
+      courseUpdates: true,
+      liveSessions: true,
+      tokenRewards: true,
+      pushEnabled: false,
+    },
+  })
+  notificationPreferences: {
+    courseUpdates: boolean;
+    liveSessions: boolean;
+    tokenRewards: boolean;
+    pushEnabled: boolean;
+  };
   lastLogin: Date | null;
+
+  @Column({ default: 0 })
+  failedLoginAttempts: number;
+
+  @Column({ nullable: true, type: 'timestamp' })
+  lockoutUntil: Date | null;
 
   @CreateDateColumn()
   createdAt: Date;

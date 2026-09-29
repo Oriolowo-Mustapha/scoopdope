@@ -222,7 +222,7 @@ export const CoursePreviewModal: React.FC<CoursePreviewModalProps> = ({
                   {course.instructor.avatar ? (
                     <img
                       src={course.instructor.avatar}
-                      alt={course.instructor.name}
+                      alt={`${course.instructor.name}, course instructor`}
                       className="w-20 h-20 rounded-full object-cover"
                     />
                   ) : (

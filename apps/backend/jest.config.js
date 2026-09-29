@@ -26,5 +26,5 @@ module.exports = {
     }
   },
   testEnvironment: 'node',
-  setupFiles: ['<rootDir>/../test/setup/external-mocks.ts'],
+  setupFiles: ['<rootDir>/../test/setup-env.ts'],
 };

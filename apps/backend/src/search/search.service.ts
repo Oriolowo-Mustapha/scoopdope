@@ -19,8 +19,13 @@ export class SearchService implements OnModuleInit {
     private readonly analyticsRepo: Repository<SearchAnalytic>
   ) {}
 
-  async onModuleInit() {
-    await this.ensureIndices();
+  onModuleInit() {
+    void this.ensureIndices().catch((error: unknown) => {
+      this.logger.error(
+        'Failed to initialize search indices',
+        error instanceof Error ? error.stack : String(error),
+      );
+    });
   }
 
   // ─── Index management ──────────────────────────────────────────────────────

@@ -6,7 +6,7 @@ const { like, eachLike, string } = MatchersV3;
 const pact = new PactV3({
   consumer: 'Scoopdope-Frontend',
   provider: 'Scoopdope-Backend',
-  dir: './pacts',
+  dir: '../../pacts',
 });
 
 const PUBLIC_KEY = 'GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN';

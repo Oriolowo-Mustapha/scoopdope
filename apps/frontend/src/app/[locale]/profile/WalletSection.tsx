@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/Button';
 import TransactionList from '@/components/wallet/TransactionList';
+import { WalletAddress } from '@/components/wallet/WalletAddress';
 
 interface Props {
   userId: string;
@@ -100,12 +101,11 @@ export default function WalletSection({ userId, stellarPublicKey, onLinked, onUn
         <div className="space-y-3">
           <div>
             <p className="text-sm text-gray-700 dark:text-gray-400 mb-1">{t('linkedKey')}</p>
-            <code
-              aria-label={t('publicKeyLabel', { key: stellarPublicKey })}
-              className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-2 py-1 rounded break-all block"
-            >
-              {stellarPublicKey}
-            </code>
+            <WalletAddress
+              address={stellarPublicKey}
+              addressLabel={t('publicKeyLabel', { key: stellarPublicKey })}
+              className="rounded bg-gray-100 px-2 py-1 dark:bg-gray-800 dark:text-gray-100"
+            />
           </div>
           {bstBalance !== null && (
             <p className="text-sm text-gray-700 dark:text-gray-300">

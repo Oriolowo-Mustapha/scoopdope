@@ -8,9 +8,9 @@ import { useKeyboardShortcuts } from './useKeyboardShortcuts';
  *
  * Key      Action
  * ───────────────────────────────────────────
- * Space    Play / Pause
- * ←        Seek back 10 s
- * →        Seek forward 10 s
+ * Space/K  Play / Pause
+ * ←/J      Seek back 10 s
+ * →/L      Seek forward 10 s
  * ↑        Volume +10 %
  * ↓        Volume −10 %
  * M        Toggle mute
@@ -113,5 +113,16 @@ export function useVideoShortcuts(
     },
   ], [videoRef, announce]);
 
-  useKeyboardShortcuts(shortcuts);
+  // YouTube-style aliases: K = play/pause, J = rewind, L = forward
+  const withAliases = useMemo(() => {
+    const byKey = (k: string) => shortcuts.find((s) => s.key === k)!;
+    return [
+      ...shortcuts,
+      { ...byKey(' '), key: 'k' },
+      { ...byKey('ArrowLeft'), key: 'j' },
+      { ...byKey('ArrowRight'), key: 'l' },
+    ];
+  }, [shortcuts]);
+
+  useKeyboardShortcuts(withAliases);
 }
