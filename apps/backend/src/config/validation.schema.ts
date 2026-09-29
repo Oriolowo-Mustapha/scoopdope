@@ -5,6 +5,7 @@ export const validationSchema = Joi.object({
   NODE_ENV: Joi.string().valid('development', 'production', 'test').default('development'),
   PORT: Joi.number().default(3000),
   LOG_FORMAT: Joi.string().valid('text', 'json').default('text'),
+  ENABLE_SWAGGER: Joi.boolean().default(false),
 
   // Database
   DATABASE_HOST: Joi.string().required(),

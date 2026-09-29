@@ -79,6 +79,7 @@ async function bootstrap() {
 
   const logger = new Logger('Bootstrap');
   const app = await NestFactory.create(AppModule, { rawBody: true });
+  logger.log(`Nest application initialized in ${Date.now() - startupStartedAt}ms`);
   app.enableShutdownHooks();
 
   // #1008: Reject request bodies larger than the global limit with 413.
@@ -156,7 +157,8 @@ async function bootstrap() {
 
   app.enableCors();
 
-  const config = new DocumentBuilder()
+  if (shouldExposeSwagger) {
+    const config = new DocumentBuilder()
     .setTitle('scoopdope API')
     .setDescription(
       'Blockchain education platform API powered by Stellar\n\n' +
@@ -211,6 +213,8 @@ async function bootstrap() {
     .addServer(`/${DEFAULT_API_VERSION}`, `API ${DEFAULT_API_VERSION}`)
     .build();
 
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup('api/docs', app, document);
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
 
