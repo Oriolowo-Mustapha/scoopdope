@@ -175,7 +175,7 @@ function SessionCard({ session, onCancel }: { session: LiveSession; onCancel: ()
       <div className="flex items-center gap-2 shrink-0">
         <span className={`text-xs font-medium px-2 py-0.5 rounded-full capitalize ${statusColor}`}>{session.status}</span>
         {session.status === 'scheduled' && (
-          <button onClick={onCancel} className="text-gray-400 hover:text-red-500 transition-colors" title="Cancel session">
+          <button onClick={onCancel} className="text-gray-400 hover:text-red-500 transition-colors" title="Cancel session" aria-label="Cancel session">
             <Trash2 className="w-4 h-4" />
           </button>
         )}

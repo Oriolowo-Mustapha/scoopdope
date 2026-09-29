@@ -91,6 +91,7 @@ export default function LessonPage() {
                   className="w-full h-full"
                   controls
                   onTimeUpdate={handleTimeUpdate}
+                  aria-label="Lesson video. Use Space or K to play/pause, arrow keys or J/L to seek, up/down to adjust volume, M to mute, F for fullscreen."
                   data-testid="video-player"
                 />
               ) : (
