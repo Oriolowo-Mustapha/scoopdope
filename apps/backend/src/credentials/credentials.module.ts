@@ -6,6 +6,7 @@ import { CredentialsController } from './credentials.controller';
 import { StellarModule } from '../stellar/stellar.module';
 import { KycModule } from '../kyc/kyc.module';
 import { CoursesModule } from '../courses/courses.module';
+import { UsersModule } from '../users/users.module';
 import { CertificatePdfService } from './certificate-pdf.service';
 
 @Module({
@@ -14,6 +15,7 @@ import { CertificatePdfService } from './certificate-pdf.service';
     forwardRef(() => StellarModule),
     KycModule,
     CoursesModule,
+    UsersModule,
   ],
   providers: [CredentialsService, CertificatePdfService],
   controllers: [CredentialsController],
