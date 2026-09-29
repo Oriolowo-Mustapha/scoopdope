@@ -1,8 +1,9 @@
-import { Module } from '@nestjs/common';
+import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { CacheModule } from '@nestjs/cache-manager';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_FILTER, APP_INTERCEPTOR, APP_GUARD } from '@nestjs/core';
+import { json, urlencoded } from 'express';
 
 // ── Entities ────────────────────────────────────────────────────────────────────
 
@@ -31,13 +32,17 @@ import { SubscriptionsModule } from './subscriptions/subscriptions.module';
 import { LiveSessionsModule } from './live-sessions/live-sessions.module';
 import { PaymentsModule } from './payments/payments.module';
 import { RewardsModule } from './rewards/rewards.module';
+import { HealthModule } from './health/health.module';
 import * as redisStore from 'cache-manager-redis-store';
 import configuration from './config/configuration';
 import { validationSchema } from './config/validation.schema';
 
 import { RateLimitModule } from './rate-limit/rate-limit.module';
 import { UserRateLimitGuard } from './rate-limit/user-rate-limit.guard';
-import { IdempotencyModule } from './common/idempotency/idempotency.module';
+
+// Global request body size limit (1MB) applied to all routes.
+const BODY_SIZE_LIMIT = '1mb';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -108,7 +113,7 @@ import { IdempotencyModule } from './common/idempotency/idempotency.module';
     RateLimitModule,
     ApiVersionModule,
     MonitoringModule,
-    IdempotencyModule,
+    ApiDocsModule,
   ],
   providers: [
     {
@@ -117,4 +122,10 @@ import { IdempotencyModule } from './common/idempotency/idempotency.module';
     },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer
+      .apply(json({ limit: BODY_SIZE_LIMIT }), urlencoded({ limit: BODY_SIZE_LIMIT, extended: true }))
+      .forRoutes('*');
+  }
+}

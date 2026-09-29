@@ -44,14 +44,17 @@ jobs:
           GIT_COMMIT_SHA: ${{ github.sha }}
 
       - name: Run unit tests with coverage
-        run: npx jest --coverage --passWithNoTests
-        working-directory: apps/backend
+        run: npm run test:cov --workspace=apps/backend -- --passWithNoTests
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./coverage/lcov.info
+          files: ./apps/backend/coverage/lcov.info
+          flags: backend
+
+      - name: Run Pact consumer tests
+        run: npm install --workspace=apps/frontend && npm run test:pact --workspace=apps/frontend
 
       - name: Run Pact provider verification
         run: npm run test:pact --workspace=apps/backend
@@ -248,6 +251,16 @@ jobs:
 
       - name: Run Pact consumer tests
         run: npm run test:pact --workspace=apps/frontend
+
+      - name: Run unit tests with coverage
+        run: npm run test:coverage --workspace=apps/frontend
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./apps/frontend/coverage/lcov.info
+          flags: frontend
 
   chromatic-visual-tests:
     name: Frontend - Visual Regression Tests (Chromatic)
