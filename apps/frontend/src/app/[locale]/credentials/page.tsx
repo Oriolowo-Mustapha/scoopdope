@@ -22,6 +22,28 @@ interface Credential {
   };
 }
 
+function shareUrl(cred: Credential) {
+  return `${window.location.origin}/certificates/${cred.id}`;
+}
+
+async function shareCredential(cred: Credential) {
+  const url = shareUrl(cred);
+  const text = `I earned a verified on-chain credential for "${cred.courseName}" on scoopdope!`;
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: cred.courseName, text, url });
+      return;
+    } catch {
+      // User cancelled or share failed — fall back to X/Twitter
+    }
+  }
+  window.open(
+    `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`,
+    '_blank',
+    'noopener,noreferrer'
+  );
+}
+
 export default function CredentialsPage() {
   const { user, isAuthenticated } = useAuth();
   const router = useRouter();
@@ -90,6 +112,24 @@ export default function CredentialsPage() {
                   className="text-sm text-gray-500 dark:text-gray-400 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
                 >
                   Verify ↗
+                </a>
+                <button
+                  onClick={() => shareCredential(cred)}
+                  className="text-sm text-blue-600 dark:text-blue-400 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
+                  aria-label={`Share ${cred.courseName} credential`}
+                >
+                  Share
+                </button>
+                <a
+                  href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(
+                    `${process.env.NEXT_PUBLIC_SITE_URL || 'https://scoopdope.app'}/certificates/${cred.id}`
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-gray-500 dark:text-gray-400 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
+                  aria-label={`Share ${cred.courseName} credential on LinkedIn`}
+                >
+                  LinkedIn ↗
                 </a>
               </div>
             </Card>

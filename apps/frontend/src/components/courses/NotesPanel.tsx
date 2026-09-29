@@ -150,10 +150,10 @@ export function NotesPanel({ lessonId, lessonTitle, currentTime, onSeek }: Notes
           )}
         </div>
         <div className="flex gap-1">
-          <button onClick={exportMarkdown} title="Export as Markdown" className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500">
+          <button onClick={exportMarkdown} title="Export as Markdown" aria-label="Export notes as Markdown" className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500">
             <Download className="w-3.5 h-3.5" />
           </button>
-          <button onClick={exportPdf} title="Export as PDF" className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500">
+          <button onClick={exportPdf} title="Export as PDF" aria-label="Export notes as PDF" className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500">
             <BookOpen className="w-3.5 h-3.5" />
           </button>
         </div>

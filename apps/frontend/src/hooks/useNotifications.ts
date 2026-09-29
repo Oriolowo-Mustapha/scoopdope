@@ -28,6 +28,7 @@ export function useNotifications() {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [playSound, setPlaySound] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const playSoundTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Initialize audio element
   useEffect(() => {
@@ -51,9 +52,15 @@ export function useNotifications() {
       setNotifications(initial);
     });
 
-    // New incoming notification
+    // New incoming notification (deduplicate in case it was already
+    // delivered via notifications:init on reconnect)
     socket.on('notification', (n: AppNotification) => {
-      setNotifications((prev) => [n, ...prev]);
+      setNotifications((prev) => {
+        if (prev.some((existing) => existing.id === n.id)) {
+          return prev;
+        }
+        return [n, ...prev];
+      });
       
       // Trigger sound and visual feedback
       setPlaySound(true);
@@ -67,7 +74,13 @@ export function useNotifications() {
       }
       
       // Reset pulse animation after delay
-      setTimeout(() => setPlaySound(false), 1000);
+      if (playSoundTimeoutRef.current) {
+        clearTimeout(playSoundTimeoutRef.current);
+      }
+      playSoundTimeoutRef.current = setTimeout(() => {
+        setPlaySound(false);
+        playSoundTimeoutRef.current = null;
+      }, 1000);
     });
 
     // Server confirms mark-as-read
@@ -78,8 +91,13 @@ export function useNotifications() {
     });
 
     return () => {
+      socket.removeAllListeners();
       socket.disconnect();
       socketRef.current = null;
+      if (playSoundTimeoutRef.current) {
+        clearTimeout(playSoundTimeoutRef.current);
+        playSoundTimeoutRef.current = null;
+      }
     };
   }, [token]);
 
@@ -98,5 +116,12 @@ export function useNotifications() {
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
-  return { notifications, unreadCount, markAsRead, markAllRead, playSound };
+  return {
+    notifications,
+    unreadCount,
+    markAsRead,
+    markAllRead,
+    clearUnread: markAllRead,
+    playSound,
+  };
 }

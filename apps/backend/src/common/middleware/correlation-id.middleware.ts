@@ -1,6 +1,7 @@
 import { Injectable, NestMiddleware } from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
 import { randomUUID } from 'crypto';
+import { requestContextStorage } from '../request-context';
 
 export const CORRELATION_ID_HEADER = 'x-request-id';
 
@@ -19,6 +20,9 @@ export class CorrelationIdMiddleware implements NestMiddleware {
     const id = incoming || randomUUID();
     req.correlationId = id;
     res.setHeader(CORRELATION_ID_HEADER, id);
-    next();
+
+    // Bind the rest of the request lifecycle to a context carrying the requestId
+    // so that logger.service.ts can attach it automatically to every log entry.
+    requestContextStorage.run({ requestId: id }, next);
   }
 }

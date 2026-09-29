@@ -130,7 +130,7 @@ export function VideoPlayer({ src, lessonId, courseId, onComplete }: Props) {
     <div
       className="relative w-full"
       tabIndex={0}
-      aria-label="Video player. Use Space to play/pause, arrow keys to seek and adjust volume, M to mute, F for fullscreen."
+      aria-label="Video player. Use Space or K to play/pause, arrow keys or J/L to seek, up/down to adjust volume, M to mute, F for fullscreen."
     >
       {/* aria-live region — visually hidden, announces shortcut actions to screen readers */}
       <span

@@ -161,25 +161,29 @@ export class SurveysService {
     npsScore: number | null;
   }[]> {
     const surveys = await this.surveyRepo.find({
-      where: { isActive: true },
+      where: { isActive: true, course: { instructorId } },
       relations: ['course', 'responses', 'questions'],
     });
 
-    const instructorSurveys = surveys.filter(
-      (s) => s.course && (s.course as any).instructorId === instructorId,
-    );
+    return surveys.map((survey) => {
+      const ratingQuestion = survey.questions.find((question) => question.type === 'rating');
+      const ratings = survey.responses
+        .map((response) => ratingQuestion && response.answers[ratingQuestion.id])
+        .filter((rating): rating is number => typeof rating === 'number');
 
-    return Promise.all(
-      instructorSurveys.map(async (s) => {
-        const analytics = await this.getAnalytics(s.id);
-        return {
-          courseId: s.courseId,
-          surveyId: s.id,
-          title: s.title,
-          totalResponses: analytics.totalResponses,
-          npsScore: analytics.npsScore,
-        };
-      }),
-    );
+      const promoters = ratings.filter((rating) => rating >= 9).length;
+      const detractors = ratings.filter((rating) => rating <= 6).length;
+
+      return {
+        courseId: survey.courseId,
+        surveyId: survey.id,
+        title: survey.title,
+        totalResponses: survey.responses.length,
+        npsScore:
+          ratings.length > 0
+            ? Math.round(((promoters - detractors) / ratings.length) * 100)
+            : null,
+      };
+    });
   }
 }

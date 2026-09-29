@@ -5,10 +5,14 @@ import { User } from '../users/user.entity';
 import { LeaderboardController } from './leaderboard.controller';
 import { LeaderboardService } from './leaderboard.service';
 import { MetricsModule } from '../metrics/metrics.module';
+import { Enrollment } from '../enrollments/enrollment.entity';
+import { Progress } from '../progress/progress.entity';
+import { Course } from '../courses/course.entity';
+import { LeaderboardsController } from './leaderboards.controller';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([User]), StellarModule, MetricsModule],
+  imports: [TypeOrmModule.forFeature([User, Enrollment, Progress, Course]), StellarModule, MetricsModule],
   providers: [LeaderboardService],
-  controllers: [LeaderboardController],
+  controllers: [LeaderboardController, LeaderboardsController],
 })
 export class LeaderboardModule {}

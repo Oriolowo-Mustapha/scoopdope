@@ -282,6 +282,13 @@ export default function CourseDetailPage({ params }: CourseDetailPageProps) {
         View Discussion Forum →
       </Link>
 
+      {/* Progress tracker — shown prominently above the tabs for enrolled students */}
+      {user && !isInstructor && isEnrolled && (
+        <div className="mb-6">
+          <ProgressTracker courseId={courseId} />
+        </div>
+      )}
+
       <div className="flex gap-4 border-b mb-6 overflow-x-auto">
         {(['overview', 'curriculum', 'reviews', 'qa', 'announcements', 'assignments', 'forum'] as const).map((t) => (
           <button
@@ -323,9 +330,22 @@ export default function CourseDetailPage({ params }: CourseDetailPageProps) {
 
       {tab === 'curriculum' && (
         <div className="space-y-6">
-          {/* Progress tracker — shown above the module list for enrolled students */}
-          {user && !isInstructor && (
-            <ProgressTracker courseId={courseId} />
+          {modules.every((m) => !m.lessons?.length) && (
+            <div className="rounded-xl border border-dashed border-gray-300 dark:border-gray-700 p-10 text-center">
+              <PlayCircle className="mx-auto mb-3 h-10 w-10 text-gray-400" aria-hidden="true" />
+              <h2 className="text-lg font-semibold">No lessons yet</h2>
+              <p className="mt-1 mb-4 text-sm text-gray-500 dark:text-gray-400">
+                {isInstructor
+                  ? 'Add your first lesson to start building this course.'
+                  : 'Lessons for this course are coming soon. Check back later.'}
+              </p>
+              <Link
+                href={isInstructor ? '/instructor/dashboard' : '/courses'}
+                className="inline-block rounded-lg bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 text-sm font-medium"
+              >
+                {isInstructor ? 'Add a lesson' : 'Browse other courses'}
+              </Link>
+            </div>
           )}
           {modules.map((mod) => {
             const modProgress = moduleProgress[mod.id];
