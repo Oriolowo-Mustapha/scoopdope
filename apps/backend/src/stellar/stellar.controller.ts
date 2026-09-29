@@ -100,6 +100,19 @@ export class StellarController {
   mintCredential(@Body() body: { recipientPublicKey: string; courseId: string }) {
     return this.stellarService.issueCredential(body.recipientPublicKey, body.courseId);
   }
+
+  @Post('transfer')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Transfer BST tokens to another account' })
+  @ApiResponse({ status: 200, description: 'Tokens transferred successfully' })
+  @ApiResponse({ status: 400, description: 'User wallet has insufficient BST tokens or invalid input' })
+  async transferTokens(@Body() body: { fromPublicKey: string; toPublicKey: string; amount: number }) {
+    if (!body.fromPublicKey || !body.toPublicKey || !body.amount || body.amount <= 0) {
+      throw new BadRequestException('Invalid transfer parameters');
+    }
+    return this.stellarService.transferTokens(body.fromPublicKey, body.toPublicKey, body.amount);
+  }
 }
 
 @ApiTags('credentials')

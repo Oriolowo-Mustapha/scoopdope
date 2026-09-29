@@ -220,7 +220,7 @@ impl TokenContract {
         from.require_auth();
 
         let bal = Self::balance(env.clone(), from.clone());
-        assert!(bal >= amount, "Insufficient balance");
+        assert!(bal >= amount, "Insufficient balance: user wallet does not have enough BST tokens to complete this operation");
 
         Self::sub_balance(&env, &from, amount);
         Self::sub_supply(&env, amount);
@@ -255,7 +255,7 @@ impl TokenContract {
         assert!(allowed >= amount, "Insufficient allowance");
 
         let bal = Self::balance(env.clone(), from.clone());
-        assert!(bal >= amount, "Insufficient balance");
+        assert!(bal >= amount, "Insufficient balance: user wallet does not have enough BST tokens to complete this operation");
 
         // Deduct allowance
         env.storage().persistent().set(
@@ -300,7 +300,7 @@ impl TokenContract {
         from.require_auth();
 
         let bal = Self::balance(env.clone(), from.clone());
-        assert!(bal >= amount, "Insufficient balance");
+        assert!(bal >= amount, "Insufficient balance: user wallet does not have enough BST tokens to complete this operation");
 
         Self::sub_balance(&env, &from, amount);
         Self::add_balance(&env, &to, amount);
@@ -342,7 +342,7 @@ impl TokenContract {
         assert!(allowed >= amount, "Allowance exceeded");
 
         let bal = Self::balance(env.clone(), from.clone());
-        assert!(bal >= amount, "Insufficient balance");
+        assert!(bal >= amount, "Insufficient balance: user wallet does not have enough BST tokens to complete this operation");
 
         // Deduct allowance
         env.storage().persistent().set(
