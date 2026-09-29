@@ -102,7 +102,7 @@ export default function LessonPage() {
             </div>
             <div className="space-y-4">
               <h2 className="text-2xl font-bold">About this lesson</h2>
-              <div className="prose dark:prose-invert max-w-none text-gray-700 dark:text-gray-300">
+              <div className="prose dark:prose-invert max-w-none text-base leading-relaxed text-gray-700 dark:text-gray-300">
                 {lesson.content}
               </div>
             </div>

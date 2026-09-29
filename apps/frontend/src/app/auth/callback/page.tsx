@@ -15,6 +15,11 @@ export default function AuthCallbackPage() {
     const refreshToken = searchParams.get('refresh_token');
 
     if (!accessToken) {
+      // Revisiting the callback (e.g. via browser back) after a successful login
+      if (useAuthStore.getState().token) {
+        router.replace('/dashboard');
+        return;
+      }
       router.replace('/auth/login?error=oauth_failed');
       return;
     }
