@@ -43,6 +43,7 @@ describe('useNotifications', () => {
         return mockSocket as Socket;
       }),
       emit: vi.fn(),
+      removeAllListeners: vi.fn(),
       disconnect: vi.fn(),
     };
 
@@ -264,6 +265,7 @@ describe('useNotifications', () => {
     unmount();
 
     expect(mockSocket.disconnect).toHaveBeenCalled();
+    expect(mockSocket.removeAllListeners).toHaveBeenCalled();
   });
 
   it('does not connect socket when no auth token', () => {

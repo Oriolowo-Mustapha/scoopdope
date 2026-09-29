@@ -22,7 +22,7 @@ import { IsAdminGuard } from '../../common/guards/is-admin.guard';
 @ApiTags('Monitoring - Query Performance')
 @Controller('monitoring/queries')
 @UseGuards(JwtAuthGuard, IsAdminGuard)
-@ApiBearerAuth('JWT-auth')
+@ApiBearerAuth()
 export class MonitoringQueryController {
   private readonly logger = new Logger(MonitoringQueryController.name);
 

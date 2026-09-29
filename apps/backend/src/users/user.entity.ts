@@ -124,6 +124,12 @@ export class User {
   };
   lastLogin: Date | null;
 
+  @Column({ default: 0 })
+  failedLoginAttempts: number;
+
+  @Column({ nullable: true, type: 'timestamp' })
+  lockoutUntil: Date | null;
+
   @CreateDateColumn()
   createdAt: Date;
 }

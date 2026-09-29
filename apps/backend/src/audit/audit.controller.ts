@@ -6,7 +6,7 @@ import { Roles } from '../auth/roles.decorator';
 import { AuditService } from './audit.service';
 
 @ApiTags('audit')
-@ApiBearerAuth('JWT-auth')
+@ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('audit')
 export class AuditController {

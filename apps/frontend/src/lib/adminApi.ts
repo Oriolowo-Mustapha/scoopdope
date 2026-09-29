@@ -67,6 +67,7 @@ export interface TopCourse {
 
 export interface PlatformAnalytics {
   totalUsers: number;
+  totalCourses: number;
   totalEnrollments: number;
   totalCompletions: number;
   totalRevenue: number;
@@ -76,6 +77,7 @@ export interface PlatformAnalytics {
   completionGrowth: GrowthPoint[];
   revenueGrowth: RevenuePoint[];
   topCourses: TopCourse[];
+  enrollmentByCourse: { courseId: string; title: string; enrollments: number }[];
 }
 
 export interface AuditLog {
@@ -149,6 +151,8 @@ export const adminApi = {
   getActivity: () => api.get<ActivityEvent[]>('/admin/activity').then((r) => r.data),
   getPendingCourses: () => api.get<PendingCourse[]>('/admin/courses/pending').then((r) => r.data),
   getHealth: () => api.get<HealthStatus>('/health').then((r) => r.data),
-  getPlatformAnalytics: () =>
-    api.get<PlatformAnalytics>('/v1/analytics/platform').then((r) => r.data),
+  getPlatformAnalytics: (params?: { from?: string; to?: string }) =>
+    api
+      .get<PlatformAnalytics>('/v1/analytics/platform', { params })
+      .then((r) => r.data),
 };

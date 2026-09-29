@@ -68,6 +68,12 @@ export default () => ({
     callbackUrl: process.env.GOOGLE_CALLBACK_URL || 'http://localhost:3000/auth/google/callback',
   },
 
+  microsoft: {
+    clientId: process.env.MICROSOFT_CLIENT_ID,
+    clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
+    callbackUrl: process.env.MICROSOFT_CALLBACK_URL || 'http://localhost:3000/auth/microsoft/callback',
+  },
+
   frontend: {
     url: process.env.FRONTEND_URL || 'http://localhost:3001',
   },
@@ -120,5 +126,11 @@ export default () => ({
   rewards: {
     moduleCompletion: parseInt(process.env.REWARD_MODULE_COMPLETION ?? '25', 10),
     courseCompletion: parseInt(process.env.REWARD_COURSE_COMPLETION ?? '100', 10),
+  },
+
+  vapid: {
+    publicKey: process.env.VAPID_PUBLIC_KEY || '',
+    privateKey: process.env.VAPID_PRIVATE_KEY || '',
+    subject: process.env.VAPID_SUBJECT || 'mailto:admin@scoopdope.com',
   },
 });

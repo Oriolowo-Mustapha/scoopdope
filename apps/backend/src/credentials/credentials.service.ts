@@ -4,7 +4,9 @@ import {
   forwardRef,
   ForbiddenException,
   NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Credential } from './credential.entity';
@@ -12,13 +14,20 @@ import { StellarService } from '../stellar/stellar.service';
 import { KycService } from '../kyc/kyc.service';
 import { CoursesService } from '../courses/courses.service';
 
+export interface BatchIssuanceItem {
+  userId: string;
+  courseId: string;
+  stellarPublicKey: string;
+}
+
 @Injectable()
 export class CredentialsService {
   constructor(
     @InjectRepository(Credential) private repo: Repository<Credential>,
     @Inject(forwardRef(() => StellarService)) private stellarService: StellarService,
     private kycService: KycService,
-    private coursesService: CoursesService
+    private coursesService: CoursesService,
+    @Optional() private configService?: ConfigService
   ) {}
 
   async issue(userId: string, courseId: string, stellarPublicKey: string): Promise<Credential> {
@@ -66,6 +75,34 @@ export class CredentialsService {
     return this.repo.save(credential);
   }
 
+  async issueBatch(items: BatchIssuanceItem[]): Promise<Credential[]> {
+    if (!Array.isArray(items) || items.length === 0) {
+      throw new BadRequestException('Batch issuance requires a non-empty list of credentials');
+    }
+
+    for (const item of items) {
+      if (!item || !item.userId || !item.courseId || !item.stellarPublicKey) {
+        throw new BadRequestException(
+          'Each batch item requires userId, courseId and stellarPublicKey'
+        );
+      }
+    }
+
+    // Issue all credentials within a single transaction so a failure rolls back the batch
+    return this.repo.manager.transaction(async (manager) => {
+      const issued: Credential[] = [];
+      for (const item of items) {
+        const credential = await this.issue(
+          item.userId,
+          item.courseId,
+          item.stellarPublicKey
+        );
+        issued.push(credential);
+      }
+      return issued;
+    });
+  }
+
   async issueBundle(userId: string, bundleId: string, stellarPublicKey: string): Promise<Credential> {
     const existing = await this.repo.findOne({ where: { userId, bundleId } });
     if (existing) return existing;
@@ -73,7 +110,8 @@ export class CredentialsService {
     const txHash = await this.stellarService.issueCredential(stellarPublicKey, `bundle:${bundleId}`);
 
     try {
-      await this.stellarService.mintReward(stellarPublicKey, 500); // Higher reward for bundle completion
+      const rewardAmount = this.configService?.get<number>('rewards.bundleCompletion') ?? 500;
+      await this.stellarService.mintReward(stellarPublicKey, rewardAmount);
     } catch {
       // Non-fatal
     }
@@ -115,6 +153,15 @@ export class CredentialsService {
 
   async verify(txHash: string) {
     const credential = await this.repo.findOne({ where: { txHash } });
-    return { credential, verified: !!credential };
+    if (!credential) {
+      return { credential: null, verified: false, expired: false, message: 'Credential not found' };
+    }
+    const isExpired = credential.expiresAt ? new Date(credential.expiresAt) < new Date() : false;
+    return {
+      credential,
+      verified: !isExpired,
+      expired: isExpired,
+      message: isExpired ? 'Credential has expired' : 'Credential verified successfully',
+    };
   }
 }

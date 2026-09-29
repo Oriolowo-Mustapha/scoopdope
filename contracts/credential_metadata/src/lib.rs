@@ -94,6 +94,8 @@ impl CredentialMetadataContract {
 
         env.events()
             .publish((STORE, symbol_short!("cred")), credential_id);
+        env.events()
+            .publish((symbol_short!("issue"), symbol_short!("cred"), student.clone()), credential_id);
 
         credential_id
     }

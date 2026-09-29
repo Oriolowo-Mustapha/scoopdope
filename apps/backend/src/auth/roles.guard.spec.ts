@@ -24,6 +24,8 @@ describe('RolesGuard', () => {
     } as unknown as ExecutionContext;
 
     jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(null);
+    expect(guard.canActivate(mockContext)).toBe(true);
+  });
 
   describe('No role restriction', () => {
     /**

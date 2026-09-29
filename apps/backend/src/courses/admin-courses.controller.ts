@@ -22,7 +22,7 @@ import { AuditAction } from '../audit/audit-log.entity';
 import { EnrollmentsService } from '../enrollments/enrollments.service';
 
 @ApiTags('admin-courses')
-@ApiBearerAuth('JWT-auth')
+@ApiBearerAuth()
 @Controller('admin/courses')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class AdminCoursesController {

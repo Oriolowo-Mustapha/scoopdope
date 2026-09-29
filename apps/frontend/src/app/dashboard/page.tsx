@@ -27,6 +27,7 @@ import { BalanceWidget } from '@/components/dashboard/BalanceWidget';
 import { CheckCircle2 } from 'lucide-react';
 import OnboardingWizard from '@/components/onboarding/OnboardingWizard';
 import { useOnboardingStore } from '@/store/onboarding.store';
+import { UserActivityDashboard } from '@/components/dashboard/UserActivityDashboard';
 import BadgeDisplay, { type BadgeProgress } from '@/components/profile/BadgeDisplay';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -597,6 +598,80 @@ export default function DashboardPage() {
             </div>
           </section>
         )}
+
+        <section>
+          <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
+            Enrolled Courses
+          </h2>
+          <div className="mt-3 space-y-4">
+            {isLoading ? (
+              Array.from({ length: 3 }).map((_, idx) => (
+                <div key={idx} className="space-y-2">
+                  <Skeleton className="w-2/5 h-5" />
+                  <Skeleton className="w-full h-3" />
+                </div>
+              ))
+            ) : enrolledCourses.length === 0 ? (
+              <p className="text-gray-500 dark:text-gray-400">
+                You have not enrolled in any courses yet.
+              </p>
+            ) : (
+              enrolledCourses.map((course) => (
+                <div
+                  key={course.id}
+                  className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4 flex items-center gap-4"
+                >
+                  <CircularProgress value={course.progressPct} size={72} strokeWidth={7} />
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-gray-800 dark:text-gray-100">{course.title}</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                      {course.progressPct === 100 ? '🏆 Completed' : `${course.progressPct}% complete`}
+                    </p>
+                    <div className="mt-2 h-2 w-full rounded-full bg-gray-200 dark:bg-gray-700">
+                      <div
+                        className="h-full rounded-full bg-blue-500 transition-all duration-300"
+                        style={{ width: `${course.progressPct}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </section>
+
+        <section>
+          <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
+            Recent Credentials
+          </h2>
+          <div className="mt-3 space-y-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4">
+            {isLoading ? (
+              Array.from({ length: 3 }).map((_, idx) => (
+                <Skeleton key={idx} className="w-full h-6" />
+              ))
+            ) : recentCredentials.length === 0 ? (
+              <p className="text-gray-500 dark:text-gray-400">
+                You have not earned any credentials yet.
+              </p>
+            ) : (
+              recentCredentials.map((cred) => (
+                <div
+                  key={cred.id}
+                  className="flex justify-between items-center text-sm text-gray-700 dark:text-gray-300"
+                >
+                  <span>{cred.course?.title ?? `Course ${cred.courseId}`}</span>
+                  <span>{new Date(cred.issuedAt).toLocaleDateString()}</span>
+                </div>
+              ))
+            )}
+          </div>
+        </section>
+
+        {/* #883: User Activity Dashboard */}
+        <section>
+          <UserActivityDashboard />
+        </section>
+
       </main>
     </ProtectedRoute>
   );
