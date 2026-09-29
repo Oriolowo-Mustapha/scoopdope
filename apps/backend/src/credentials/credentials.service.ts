@@ -6,6 +6,7 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Credential } from './credential.entity';
@@ -25,7 +26,8 @@ export class CredentialsService {
     @InjectRepository(Credential) private repo: Repository<Credential>,
     @Inject(forwardRef(() => StellarService)) private stellarService: StellarService,
     private kycService: KycService,
-    private coursesService: CoursesService
+    private coursesService: CoursesService,
+    @Optional() private configService?: ConfigService
   ) {}
 
   async issue(userId: string, courseId: string, stellarPublicKey: string): Promise<Credential> {
@@ -108,7 +110,8 @@ export class CredentialsService {
     const txHash = await this.stellarService.issueCredential(stellarPublicKey, `bundle:${bundleId}`);
 
     try {
-      await this.stellarService.mintReward(stellarPublicKey, 500); // Higher reward for bundle completion
+      const rewardAmount = this.configService?.get<number>('rewards.bundleCompletion') ?? 500;
+      await this.stellarService.mintReward(stellarPublicKey, rewardAmount);
     } catch {
       // Non-fatal
     }

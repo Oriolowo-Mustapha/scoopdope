@@ -454,6 +454,14 @@ export class StellarService implements OnApplicationShutdown {
     this.incrementPendingTransactions();
     try {
       return await fn();
+    } catch (err: any) {
+      if (err instanceof Error) {
+        err.message = sanitizeWalletString(err.message);
+        if (err.stack) {
+          err.stack = sanitizeWalletString(err.stack);
+        }
+      }
+      throw err;
     } finally {
       this.decrementPendingTransactions();
     }
